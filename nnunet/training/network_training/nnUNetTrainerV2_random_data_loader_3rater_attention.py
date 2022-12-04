@@ -31,17 +31,23 @@ import torch
 from os.path import exists
 import shutil
 
+# import for attention
+from nnunet.network_architecture.generic_UNet import Generic_UNet_attention
+from nnunet.network_architecture.initialization import InitWeights_He
+from nnunet.utilities.nd_softmax import softmax_helper
 
 
-
-class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
+class nnUNetTrainerV2_random_data_loader_3rater_attention(nnUNetTrainerV2):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
                  unpack_data=True, deterministic=True, fp16=False):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
         self.max_num_epochs = 500 # changed from 1000
+        self.dropout_num = 0
+
         self.gpu_id_to_use = 0
         self.threshold = 1
+
         self.gt_niftis_folder_random = self.gt_niftis_folder + '_random'
 
     def initialize(self, training=True, force_load_plans=False):
@@ -131,6 +137,44 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
             self.print_to_log_file('self.was_initialized is True, not running self.initialize again')
         self.was_initialized = True
 
+    def initialize_network(self):
+        """
+        - momentum 0.99
+        - SGD instead of Adam
+        - self.lr_scheduler = None because we do poly_lr
+        - deep supervision = True
+        - i am sure I forgot something here
+
+        Known issue: forgot to set neg_slope=0 in InitWeights_He; should not make a difference though
+        :return:
+        """
+        if self.threeD:
+            conv_op = nn.Conv3d
+            dropout_op = nn.Dropout3d
+            norm_op = nn.InstanceNorm3d
+
+        else:
+            conv_op = nn.Conv2d
+            dropout_op = nn.Dropout2d
+            norm_op = nn.InstanceNorm2d
+
+        norm_op_kwargs = {'eps': 1e-5, 'affine': True}
+        dropout_op_kwargs = {'p': self.dropout_num, 'inplace': True}
+        net_nonlin = nn.LeakyReLU
+        net_nonlin_kwargs = {'negative_slope': 1e-2, 'inplace': True}
+
+
+        self.network = Generic_UNet_attention(self.num_input_channels, self.base_num_features, self.num_classes,
+                                    len(self.net_num_pool_op_kernel_sizes),
+                                    self.conv_per_stage, 2, conv_op, norm_op, norm_op_kwargs, dropout_op,
+                                    dropout_op_kwargs,
+                                    net_nonlin, net_nonlin_kwargs, True, False, lambda x: x, InitWeights_He(1e-2),
+                                    self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
+
+        if torch.cuda.is_available():
+            self.network.cuda()
+        self.network.inference_apply_nonlin = softmax_helper
+
     def load_dataset(self):
         self.dataset = load_dataset_random(self.folder_with_preprocessed_data)
 
@@ -138,10 +182,10 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
         self.load_dataset()
         self.do_split()
 
-        dl_tr = DataLoader3D_random(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, False,
+        dl_tr = DataLoader3D_random(self.dataset_tr, self.patch_size, self.patch_size, 1, False,
                                   oversample_foreground_percent=self.oversample_foreground_percent,
                                   pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r')
-        dl_val = DataLoader3D_random(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, False,
+        dl_val = DataLoader3D_random(self.dataset_val, self.patch_size, self.patch_size, 1, False,
                                   oversample_foreground_percent=self.oversample_foreground_percent,
                                   pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r')
 

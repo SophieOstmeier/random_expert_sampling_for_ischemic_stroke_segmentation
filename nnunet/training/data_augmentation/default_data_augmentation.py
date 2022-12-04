@@ -52,7 +52,7 @@ default_3D_augmentation_params = {
     "p_independent_scale_per_axis": 1,
     "p_scale": 0.2,
 
-    "do_rotation": True,
+    "do_rotation": True, #'True'
     "rotation_x": (-15. / 360 * 2. * np.pi, 15. / 360 * 2. * np.pi),
     "rotation_y": (-15. / 360 * 2. * np.pi, 15. / 360 * 2. * np.pi),
     "rotation_z": (-15. / 360 * 2. * np.pi, 15. / 360 * 2. * np.pi),

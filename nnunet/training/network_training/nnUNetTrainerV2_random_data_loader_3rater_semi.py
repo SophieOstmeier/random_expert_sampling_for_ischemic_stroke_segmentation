@@ -30,11 +30,15 @@ import random
 import torch
 from os.path import exists
 import shutil
+# for run_interation
+from nnunet.utilities.to_torch import maybe_to_torch, to_cuda
+from torch.cuda.amp import GradScaler, autocast
+import sys
 
 
 
 
-class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
+class nnUNetTrainerV2_random_data_loader_3rater_semi(nnUNetTrainerV2):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
                  unpack_data=True, deterministic=True, fp16=False):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
@@ -43,6 +47,57 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
         self.gpu_id_to_use = 0
         self.threshold = 1
         self.gt_niftis_folder_random = self.gt_niftis_folder + '_random'
+
+    def run_iteration(self, data_generator, do_backprop=True, run_online_evaluation=False):
+        data_dict = next(data_generator)
+        data = data_dict['data']
+        target = data_dict['target']
+        print(data_dict)
+        print(type(target[0]))
+
+        data = maybe_to_torch(data)
+        target = maybe_to_torch(target)
+
+        if torch.cuda.is_available():
+            data = to_cuda(data,self.gpu_id_to_use)
+            target = to_cuda(target,self.gpu_id_to_use)
+
+        self.optimizer.zero_grad()
+
+        if self.fp16:
+            with autocast():
+                output = self.network(data)
+                #new_mask = output.detach().cpu().numpy()
+                print(f'Output from network {torch.Size(output)} and type {type(new_mask)})')
+                sys.exit()
+                del data
+                l = self.loss(output, target)
+                # l_prediction = self.loss_prediction(output_prediction, target_prediction)
+
+            if do_backprop:
+                self.amp_grad_scaler.scale(l).backward()
+                self.amp_grad_scaler.step(self.optimizer)
+                self.amp_grad_scaler.update()
+        else:
+            output = self.network(data)
+            del data
+            l = self.loss(output, target)
+
+            if do_backprop:
+                l.backward()
+                self.optimizer.step()
+
+        if run_online_evaluation:
+            self.run_online_evaluation(output, target)
+
+        if id > 300:
+            data_dict['target'] = output
+            new_mask = data_dict.detach().cpu().numpy()
+            np.save(new_mask, data_dict['target'])
+
+        del target
+
+        return l.detach().cpu().numpy(),  # l_prediction.detach().cpu().numpy()
 
     def initialize(self, training=True, force_load_plans=False):
         """
@@ -138,7 +193,7 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
         self.load_dataset()
         self.do_split()
 
-        dl_tr = DataLoader3D_random(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, False,
+        dl_tr = DataLoader3D_random(self.dataset_tr, self.patch_size, self.patch_size, self.batch_size, False,
                                   oversample_foreground_percent=self.oversample_foreground_percent,
                                   pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r')
         dl_val = DataLoader3D_random(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, False,

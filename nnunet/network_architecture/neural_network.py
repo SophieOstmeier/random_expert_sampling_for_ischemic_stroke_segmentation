@@ -70,6 +70,9 @@ class SegmentationNetwork(NeuralNetwork):
         self._gaussian_3d = self._patch_size_for_gaussian_3d = None
         self._gaussian_2d = self._patch_size_for_gaussian_2d = None
 
+        # GPU to use
+        self.gpu_id_to_use = None
+
     def predict_3D(self, x: np.ndarray, do_mirroring: bool, mirror_axes: Tuple[int, ...] = (0, 1, 2),
                    use_sliding_window: bool = False,
                    step_size: float = 0.5, patch_size: Tuple[int, ...] = None, regions_class_order: Tuple[int, ...] = None,
@@ -511,14 +514,16 @@ class SegmentationNetwork(NeuralNetwork):
         result_torch = torch.zeros([1, self.num_classes] + list(x.shape[2:]),
                                    dtype=torch.float)
 
+        # torch.cuda.set_device(self.gpu_id_to_use)  # added from brian to have tensor and network both on gpu_id_to_use
+
         if torch.cuda.is_available():
-            x = to_cuda(x, gpu_id=self.get_device())
+            x = to_cuda(x, self.get_device())
             result_torch = result_torch.cuda(self.get_device(), non_blocking=True)
 
         if mult is not None:
             mult = maybe_to_torch(mult)
             if torch.cuda.is_available():
-                mult = to_cuda(mult, gpu_id=self.get_device())
+                mult = to_cuda(mult, self.get_device())
 
         if do_mirroring:
             mirror_idx = 8
@@ -578,13 +583,13 @@ class SegmentationNetwork(NeuralNetwork):
         result_torch = torch.zeros([x.shape[0], self.num_classes] + list(x.shape[2:]), dtype=torch.float)
 
         if torch.cuda.is_available():
-            x = to_cuda(x, gpu_id=self.get_device())
+            x = to_cuda(x, self.get_device())
             result_torch = result_torch.cuda(self.get_device(), non_blocking=True)
 
         if mult is not None:
             mult = maybe_to_torch(mult)
             if torch.cuda.is_available():
-                mult = to_cuda(mult, gpu_id=self.get_device())
+                mult = to_cuda(mult, self.get_device())
 
         if do_mirroring:
             mirror_idx = 4

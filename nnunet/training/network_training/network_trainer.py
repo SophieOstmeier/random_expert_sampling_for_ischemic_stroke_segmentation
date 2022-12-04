@@ -37,6 +37,7 @@ from abc import abstractmethod
 from datetime import datetime
 from tqdm import trange
 from nnunet.utilities.to_torch import maybe_to_torch, to_cuda
+import statsmodels.api as sm
 
 
 class NetworkTrainer(object):
@@ -82,6 +83,7 @@ class NetworkTrainer(object):
         self.fold = None
         self.loss = None
         self.dataset_directory = None
+        self.gpu_id_to_use = None
 
         ################# SET THESE IN LOAD_DATASET OR DO_SPLIT ############################
         self.dataset = None  # these can be None for inference mode
@@ -201,14 +203,23 @@ class NetworkTrainer(object):
 
             x_values = list(range(self.epoch + 1))
 
+            lowess_tr = sm.nonparametric.lowess(self.all_tr_losses, x_values, frac=0.4)
+            lowess_val = sm.nonparametric.lowess(self.all_val_losses, x_values, frac=0.4)
+
             ax.plot(x_values, self.all_tr_losses, color='b', ls='-', label="loss_tr")
+            ax.plot(lowess_tr[:, 0], lowess_tr[:, 1], color='b')
 
             ax.plot(x_values, self.all_val_losses, color='r', ls='-', label="loss_val, train=False")
+            ax.plot(lowess_val[:, 0], lowess_val[:, 1], color='r')
 
             if len(self.all_val_losses_tr_mode) > 0:
+                lowess_val_all_val_losses_tr_mode = sm.nonparametric.lowess(self.all_val_losses_tr_mode, x_values,frac=0.4)
                 ax.plot(x_values, self.all_val_losses_tr_mode, color='g', ls='-', label="loss_val, train=True")
+                ax.plot(lowess_val_all_val_losses_tr_mode[:, 0], lowess_val_all_val_losses_tr_mode[:, 1], color='g')
             if len(self.all_val_eval_metrics) == len(x_values):
+                lowess_val_eval_metrics = sm.nonparametric.lowess(self.all_val_eval_metrics, x_values, frac=0.4)
                 ax2.plot(x_values, self.all_val_eval_metrics, color='g', ls='--', label="evaluation metric")
+                ax2.plot(lowess_val_eval_metrics[:, 0], lowess_val_eval_metrics[:, 1], color='g')
 
             ax.set_xlabel("epoch")
             ax.set_ylabel("loss")
@@ -218,6 +229,7 @@ class NetworkTrainer(object):
 
             fig.savefig(join(self.output_folder, "progress.png"))
             plt.close()
+
         except IOError:
             self.print_to_log_file("failed to plot: ", sys.exc_info())
 
@@ -633,8 +645,8 @@ class NetworkTrainer(object):
         target = maybe_to_torch(target)
 
         if torch.cuda.is_available():
-            data = to_cuda(data)
-            target = to_cuda(target)
+            data = to_cuda(data, self.gpu_id_to_use)
+            target = to_cuda(target, self.gpu_id_to_use)
 
         self.optimizer.zero_grad()
 

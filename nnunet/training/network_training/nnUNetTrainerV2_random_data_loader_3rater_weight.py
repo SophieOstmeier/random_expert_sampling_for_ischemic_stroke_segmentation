@@ -11,7 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-from nnunet.training.dataloading.dataset_loading_random_sampling import unpack_dataset,load_dataset_random, DataLoader3D_random
+from nnunet.training.dataloading.dataset_loading_random_sampling_weight import unpack_dataset,load_dataset_random, DataLoader3D_random_weight
 from nnunet.training.loss_functions.deep_supervision import MultipleOutputLoss2
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 from nnunet.training.data_augmentation.data_augmentation_moreDA import get_moreDA_augmentation
@@ -30,22 +30,14 @@ import torch
 from os.path import exists
 import shutil
 
-class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
+class nnUNetTrainerV2_random_data_loader_3rater_weight(nnUNetTrainerV2):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
                  unpack_data=True, deterministic=True, fp16=False):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
         self.max_num_epochs = 500 # changed from 1000
-        self.gpu_id_to_use = 0# self.get_free_gpu()
         self.threshold = 1
         self.gt_niftis_folder_random = self.gt_niftis_folder + '_random'
-
-    def get_free_gpu(self):
-        gpu_zero = torch.cuda.memory_usage(device=0)
-        gpu_one = torch.cuda.memory_usage(device=1)
-        print('Value for zero is:', gpu_zero)
-        print('Value for one is:', gpu_one)
-        return min(gpu_zero, gpu_one)
 
     def initialize(self, training=True, force_load_plans=False):
         """
@@ -141,10 +133,10 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
         self.load_dataset()
         self.do_split()
 
-        dl_tr = DataLoader3D_random(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, False,
+        dl_tr = DataLoader3D_random_weight(self.dataset_tr, self.patch_size, self.patch_size, self.batch_size, False,
                                   oversample_foreground_percent=self.oversample_foreground_percent,
                                   pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r')
-        dl_val = DataLoader3D_random(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, False,
+        dl_val = DataLoader3D_random_weight(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, False,
                                   oversample_foreground_percent=self.oversample_foreground_percent,
                                   pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r')
 

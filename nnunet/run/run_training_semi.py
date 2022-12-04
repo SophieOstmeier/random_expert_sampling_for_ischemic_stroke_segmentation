@@ -29,6 +29,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("network")
     parser.add_argument("network_trainer")
+    parser.add_argument("network_trainer_semi")
     parser.add_argument("task", help="can be task name or task id")
     parser.add_argument("fold", help='0, 1, ..., 5 or \'all\'')
     parser.add_argument("-val", "--validation_only", help="use this if you want to only run the validation",
@@ -74,13 +75,6 @@ def main():
                              "running postprocessing on each fold is computationally cheap, but some users have "
                              "reported issues with very large images. If your images are large (>600x600x600 voxels) "
                              "you should consider setting this flag.")
-    # parser.add_argument("--interp_order", required=False, default=3, type=int,
-    #                     help="order of interpolation for segmentations. Testing purpose only. Hands off")
-    # parser.add_argument("--interp_order_z", required=False, default=0, type=int,
-    #                     help="order of interpolation along z if z is resampled separately. Testing purpose only. "
-    #                          "Hands off")
-    # parser.add_argument("--force_separate_z", required=False, default="None", type=str,
-    #                     help="force_separate_z resampling. Can be None, True or False. Testing purpose only. Hands off")
     parser.add_argument('--val_disable_overwrite', action='store_false', default=True,
                         help='Validation does not overwrite existing segmentations')
     parser.add_argument('--disable_next_stage_pred', action='store_true', default=False,
@@ -96,6 +90,7 @@ def main():
     fold = args.fold
     network = args.network
     network_trainer = args.network_trainer
+    network_trainer_semi = args.network_trainer_semi
     validation_only = args.validation_only
     plans_identifier = args.p
     find_lr = args.find_lr
@@ -173,7 +168,7 @@ def main():
                 # we start a new training. If pretrained_weights are set, use them
                 load_pretrained_weights(trainer.network, args.pretrained_weights)
             else:
-                # new training without pretraine weights, do nothing
+                # new training without pretrain weights, do nothing
                 pass
 
             trainer.run_training()
@@ -183,10 +178,71 @@ def main():
             else:
                 trainer.load_final_checkpoint(train=False)
 
-        trainer.network.eval()
+
+        # run prediction
+
+        # preprocess
+
+        plans_file, output_folder_name, dataset_directory, batch_dice, stage, \
+        trainer_class_semi = get_default_configuration(network, task, network_trainer_semi, plans_identifier)
+
+        if trainer_class_semi is None:
+            raise RuntimeError("Could not find trainer class in nnunet.training.network_training")
+
+        if network == "3d_cascade_fullres":
+            assert issubclass(trainer_class_semi, (nnUNetTrainerCascadeFullRes, nnUNetTrainerV2CascadeFullRes)), \
+                "If running 3d_cascade_fullres then your " \
+                "trainer class must be derived from " \
+                "nnUNetTrainerCascadeFullRes"
+        else:
+            assert issubclass(trainer_class_semi,
+                              nnUNetTrainer), "network_trainer was found but is not derived from nnUNetTrainer"
+
+        trainer_semi = trainer_class_semi(plans_file, fold, output_folder=output_folder_name, dataset_directory=dataset_directory,
+                                batch_dice=batch_dice, stage=stage, unpack_data=decompress_data,
+                                deterministic=deterministic,
+                                fp16=run_mixed_precision)
+        if args.disable_saving:
+            trainer_semi.save_final_checkpoint = False  # whether or not to save the final checkpoint
+            trainer_semi.save_best_checkpoint = False  # whether or not to save the best checkpoint according to
+            # self.best_val_eval_criterion_MA
+            trainer_semi.save_intermediate_checkpoints = True  # whether or not to save checkpoint_latest. We need that in case
+            # the training chashes
+            trainer_semi.save_latest_only = True  # if false it will not store/overwrite _latest but separate files each
+
+        trainer_semi.initialize(not validation_only)
+
+        # run semi-supervised training with pseudolabels
+        if find_lr:
+            trainer_semi.find_lr()
+        else:
+            if not validation_only:
+                if args.continue_training:
+                    # -c was set, continue a previous training and ignore pretrained weights
+                    trainer_semi.load_latest_checkpoint()
+                elif (not args.continue_training) and (args.pretrained_weights is not None):
+                    # we start a new training. If pretrained_weights are set, use them
+                    load_pretrained_weights(trainer_semi.network, args.pretrained_weights)
+                else:
+                    # new training without pretrain weights, do nothing
+                    pass
+
+                trainer_semi.run_training()
+            else:
+                if valbest:
+                    trainer_semi.load_best_checkpoint(train=False)
+                else:
+                    trainer_semi.load_final_checkpoint(train=False)
+
+
+        trainer_semi.network.eval()
 
         # predict validation
         trainer.validate(save_softmax=args.npz, validation_folder_name=val_folder,
+                         run_postprocessing_on_folds=not disable_postprocessing_on_folds,
+                         overwrite=args.val_disable_overwrite)
+
+        trainer_semi.validate(save_softmax=args.npz, validation_folder_name=val_folder,
                          run_postprocessing_on_folds=not disable_postprocessing_on_folds,
                          overwrite=args.val_disable_overwrite)
 

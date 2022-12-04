@@ -23,7 +23,7 @@ from nnunet.configuration import default_num_threads
 from nnunet.evaluation.evaluator import aggregate_scores
 from nnunet.inference.segmentation_export import save_segmentation_nifti_from_softmax
 from nnunet.network_architecture.neural_network import SegmentationNetwork
-from nnunet.postprocessing.connected_components import determine_postprocessing
+from nnunet.postprocessing.connected_components import determine_postprocessing_3rater_major
 import shutil
 from multiprocessing import Pool
 from time import sleep
@@ -34,14 +34,14 @@ from os.path import exists
 import sys
 
 
-class nnUNetTrainerV2_majority_data_loader(nnUNetTrainerV2):
+class nnUNetTrainerV2_majority_data_loader_3rater(nnUNetTrainerV2):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
                  unpack_data=True, deterministic=True, fp16=False):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
         self.max_num_epochs = 500 # changed from 1000
         self.gpu_id_to_use = 1
-        self.threshold = 1
+        self.threshold = 1.0
         self.gt_niftis_folder_major = self.gt_niftis_folder + '_major'
 
 
@@ -220,22 +220,20 @@ class nnUNetTrainerV2_majority_data_loader(nnUNetTrainerV2):
             if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \
                         (save_softmax and not isfile(join(output_folder, fname + ".npz"))):
 
-                    # major_seg = random.choice(major_seg_list)
-                    # print(major_se
-
-                    # print(k, data.shape)
                 if not exists(join(output_folder, fname + ".nii.gz")):
 
+                    data_list_pred = []
                     major_seg_list = ['data_file_Abdel', 'data_file_Ben', 'data_file_Jeremy']
                     for a in major_seg_list:
                         case_all_data_expert = np.load(self.dataset[k][a])['data']
-                        data_list.append(case_all_data_expert[1, :, :, :])
-                    case_all_data_sum = sum(data_list) > 1.
+                        data_list_pred.append(case_all_data_expert[1, :, :, :])
+
+                    case_all_data_sum = sum(data_list_pred) > 1.
                     case_all_data_seg = case_all_data_sum.astype(np.float)
-                    # Stack majority vote segmentation to input image. It does not matter which one. All experts have the same input image
+                    # stack majority vote segmentation to input image. It does not mater which one. All experts have the same input image
                     # We could exchange Abdel for any other experts
                     data = np.stack((np.load(self.dataset[k]['data_file_Abdel'])['data'][0, :, :, :], case_all_data_seg), axis=0)
-                    print(k, data.shape)
+
                     data[-1][data[-1] == -1] = 0
 
                     softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(data[:-1],
@@ -277,11 +275,12 @@ class nnUNetTrainerV2_majority_data_loader(nnUNetTrainerV2):
 
             # save majority vote mask for validation if not already done so
 
+            #if exists(join(self.gt_niftis_folder_major, fname + ".nii.gz")):
+            major_seg_gt_list = [self.gt_niftis_folder + '_Abdel',
+                                 self.gt_niftis_folder + '_Ben',
+                                 self.gt_niftis_folder + '_Jeremy']
+            data_list = []
             if not exists(join(self.gt_niftis_folder_major, fname + ".nii.gz")):
-                data_list = []
-                major_seg_gt_list = [self.gt_niftis_folder + '_Abdel',
-                                     self.gt_niftis_folder + '_Ben',
-                                     self.gt_niftis_folder + '_Jeremy']
                 for a in major_seg_gt_list:
                     case_all_data_expert = SimpleITK.ReadImage(join(a, fname + ".nii.gz"))
                     data_list.append(SimpleITK.GetArrayFromImage(case_all_data_expert))
@@ -317,7 +316,7 @@ class nnUNetTrainerV2_majority_data_loader(nnUNetTrainerV2):
             # classes and then rerun the evaluation. Those classes for which this resulted in an improved dice score will
             # have this applied during inference as well
             self.print_to_log_file("determining postprocessing")
-            determine_postprocessing(self.output_folder, self.gt_niftis_folder_major, self.threshold, validation_folder_name,
+            determine_postprocessing_3rater_major(self.output_folder,self.gt_niftis_folder, self.gt_niftis_folder_major, self.threshold, validation_folder_name,
                                      final_subf_name=validation_folder_name + "_postprocessed", debug=debug)
             # after this the final predictions for the vlaidation set can be found in validation_folder_name_base + "_postprocessed"
             # They are always in that folder, even if no postprocessing as applied!

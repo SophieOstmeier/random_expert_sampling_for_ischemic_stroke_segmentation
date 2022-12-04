@@ -28,17 +28,25 @@ from multiprocessing import Pool
 from time import sleep
 import random
 import torch
+from nnunet.network_architecture.generic_UNet import Generic_UNet_flip
+from nnunet.network_architecture.initialization import InitWeights_He
+from nnunet.utilities.nd_softmax import softmax_helper
+from sklearn.model_selection import KFold
 
 
-
-
-class nnUNetTrainerV2_random_data_loader(nnUNetTrainerV2):
+class nnUNetTrainerV2_random_data_loader_3rater_flip(nnUNetTrainerV2):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
                  unpack_data=True, deterministic=True, fp16=False):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
         self.max_num_epochs = 500 # changed from 1000
+
+        self.initial_lr = 2e-2  # changed from 1e-2
+        self.weight_decay = 3e-5  # changed from 3e-5
         self.gpu_id_to_use = 0
+        self.threshold = 1  # changed from 0
+        self.momentum = 0.99  # changed from 0.99
+        self.dropout_num = 0.0  # changed from 0.0
 
 
     def initialize(self, training=True, force_load_plans=False):
@@ -128,6 +136,51 @@ class nnUNetTrainerV2_random_data_loader(nnUNetTrainerV2):
             self.print_to_log_file('self.was_initialized is True, not running self.initialize again')
         self.was_initialized = True
 
+    def initialize_optimizer_and_scheduler(self):
+        assert self.network is not None, "self.initialize_network must be called first"
+        self.optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
+                                         momentum=self.momentum,
+                                         nesterov=True)  # changed from momentum=0.99, tried 0.80
+        self.lr_scheduler = None
+
+    def initialize_network(self):
+        """
+        - momentum 0.99
+        - SGD instead of Adam
+        - self.lr_scheduler = None because we do poly_lr
+        - deep supervision = True
+        - i am sure I forgot something here
+
+        Known issue: forgot to set neg_slope=0 in InitWeights_He; should not make a difference though
+        :return:
+        """
+        if self.threeD:
+            conv_op = nn.Conv3d
+            dropout_op = nn.Dropout3d
+            norm_op = nn.InstanceNorm3d
+
+        else:
+            conv_op = nn.Conv2d
+            dropout_op = nn.Dropout2d
+            norm_op = nn.InstanceNorm2d
+
+        norm_op_kwargs = {'eps': 1e-5, 'affine': True}
+        dropout_op_kwargs = {'p': self.dropout_num, 'inplace': True}
+        net_nonlin = nn.LeakyReLU
+        net_nonlin_kwargs = {'negative_slope': 1e-2, 'inplace': True}
+
+
+        self.network = Generic_UNet_flip(self.num_input_channels, self.base_num_features, self.num_classes,
+                                    len(self.net_num_pool_op_kernel_sizes),
+                                    self.conv_per_stage, 2, conv_op, norm_op, norm_op_kwargs, dropout_op,
+                                    dropout_op_kwargs,
+                                    net_nonlin, net_nonlin_kwargs, True, False, lambda x: x, InitWeights_He(1e-2),
+                                    self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
+
+        if torch.cuda.is_available():
+            self.network.cuda()
+        self.network.inference_apply_nonlin = softmax_helper
+
     def load_dataset(self):
         self.dataset = load_dataset_random(self.folder_with_preprocessed_data)
 
@@ -135,7 +188,7 @@ class nnUNetTrainerV2_random_data_loader(nnUNetTrainerV2):
         self.load_dataset()
         self.do_split()
 
-        dl_tr = DataLoader3D_random(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, False,
+        dl_tr = DataLoader3D_random(self.dataset_tr, self.patch_size, self.patch_size, self.batch_size, False,
                                   oversample_foreground_percent=self.oversample_foreground_percent,
                                   pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r')
         dl_val = DataLoader3D_random(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, False,
@@ -208,6 +261,9 @@ class nnUNetTrainerV2_random_data_loader(nnUNetTrainerV2):
         for k in self.dataset_val.keys():
             properties = load_pickle(self.dataset[k]['properties_file'])
             fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
+            major_seg_gt_list = [self.gt_niftis_folder + '_Abdel',
+                                 self.gt_niftis_folder + '_Ben',
+                                 self.gt_niftis_folder + '_Jeremy']
             if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \
                     (save_softmax and not isfile(join(output_folder, fname + ".npz"))):
                 random_seg_list = ['data_file_Abdel', 'data_file_Ben', 'data_file_Jeremy']
@@ -256,7 +312,13 @@ class nnUNetTrainerV2_random_data_loader(nnUNetTrainerV2):
                                )
 
             pred_gt_tuples.append([join(output_folder, fname + ".nii.gz"),
-                                   join(f'{self.gt_niftis_folder}_{random.choice(random_seg_list)}', fname + ".nii.gz")])
+                                   join(f'{self.gt_niftis_folder}_{random_seg.rsplit("_", 1)[-1]}', fname + ".nii.gz")])
+            pred_gt_tuples_Abdel.append([join(output_folder, fname + ".nii.gz"),
+                                   join(major_seg_gt_list[0], fname + ".nii.gz")])
+            pred_gt_tuples_Ben.append([join(output_folder, fname + ".nii.gz"),
+                                   join(major_seg_gt_list[1], fname + ".nii.gz")])
+            pred_gt_tuples_Jeremy.append([join(output_folder, fname + ".nii.gz"),
+                                   join(major_seg_gt_list[2], fname + ".nii.gz")])
 
         _ = [i.get() for i in results]
         self.print_to_log_file("finished prediction")
@@ -265,9 +327,28 @@ class nnUNetTrainerV2_random_data_loader(nnUNetTrainerV2):
         self.print_to_log_file("evaluation of raw predictions")
         task = self.dataset_directory.split("/")[-1]
         job_name = self.experiment_name
-        _ = aggregate_scores(pred_gt_tuples, labels=list(range(self.num_classes)),
+        _ = aggregate_scores(pred_gt_tuples, self.threshold, labels=list(range(self.num_classes)),
                              json_output_file=join(output_folder, "summary.json"),
                              excel_output_file=join(output_folder, "summary.xlsx"),
+                             json_name=job_name + " val tiled %s" % (str(use_sliding_window)),
+                             json_author="Fabian",
+                             json_task=task, num_threads=default_num_threads)
+
+        _ = aggregate_scores(pred_gt_tuples_Abdel, self.threshold, labels=list(range(self.num_classes)),
+                             json_output_file=join(output_folder, "summary_Abdel.json"),
+                             excel_output_file=join(output_folder, "summary_Abdel.xlsx"),
+                             json_name=job_name + " val tiled %s" % (str(use_sliding_window)),
+                             json_author="Fabian",
+                             json_task=task, num_threads=default_num_threads)
+        _ = aggregate_scores(pred_gt_tuples_Ben, self.threshold, labels=list(range(self.num_classes)),
+                             json_output_file=join(output_folder, "summary_Ben.json"),
+                             excel_output_file=join(output_folder, "summary_Ben.xlsx"),
+                             json_name=job_name + " val tiled %s" % (str(use_sliding_window)),
+                             json_author="Fabian",
+                             json_task=task, num_threads=default_num_threads)
+        _ = aggregate_scores(pred_gt_tuples_Jeremy, self.threshold, labels=list(range(self.num_classes)),
+                             json_output_file=join(output_folder, "summary_Jeremy.json"),
+                             excel_output_file=join(output_folder, "summary_Jeremy.xlsx"),
                              json_name=job_name + " val tiled %s" % (str(use_sliding_window)),
                              json_author="Fabian",
                              json_task=task, num_threads=default_num_threads)
@@ -306,4 +387,3 @@ class nnUNetTrainerV2_random_data_loader(nnUNetTrainerV2):
                     raise e
 
         self.network.train(current_mode)
-

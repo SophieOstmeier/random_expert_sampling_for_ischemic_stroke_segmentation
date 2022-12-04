@@ -15,6 +15,7 @@
 
 import torch
 from nnunet.training.loss_functions.TopK_loss import TopKLoss
+from nnunet.training.loss_functions.focal_loss import FocalLossV2
 from nnunet.training.loss_functions.crossentropy import RobustCrossEntropyLoss
 from nnunet.utilities.nd_softmax import softmax_helper
 from nnunet.utilities.tensor_utilities import sum_tensor
@@ -177,10 +178,10 @@ class SoftDiceLoss(nn.Module):
 
         tp, fp, fn, _ = get_tp_fp_fn_tn(x, y, axes, loss_mask, False)
 
-        nominator = 2 * tp + self.smooth
+        numerator = 2 * tp + self.smooth
         denominator = 2 * tp + fp + fn + self.smooth
 
-        dc = nominator / (denominator + 1e-8)
+        dc = numerator / denominator
 
         if not self.do_bg:
             if self.batch_dice:
@@ -409,6 +410,25 @@ class DC_and_topk_loss(nn.Module):
         super(DC_and_topk_loss, self).__init__()
         self.aggregate = aggregate
         self.ce = TopKLoss(**ce_kwargs)
+        if not square_dice:
+            self.dc = SoftDiceLoss(apply_nonlin=softmax_helper, **soft_dice_kwargs)
+        else:
+            self.dc = SoftDiceLossSquared(apply_nonlin=softmax_helper, **soft_dice_kwargs)
+
+    def forward(self, net_output, target):
+        dc_loss = self.dc(net_output, target)
+        ce_loss = self.ce(net_output, target)
+        if self.aggregate == "sum":
+            result = ce_loss + dc_loss
+        else:
+            raise NotImplementedError("nah son") # reserved for other stuff (later?)
+        return result
+
+class DC_focal_loss(nn.Module):
+    def __init__(self, soft_dice_kwargs, focal_loss_kwargs, aggregate="sum", square_dice=False):
+        super(DC_focal_loss, self).__init__()
+        self.aggregate = aggregate
+        self.ce = FocalLossV2(**focal_loss_kwargs)
         if not square_dice:
             self.dc = SoftDiceLoss(apply_nonlin=softmax_helper, **soft_dice_kwargs)
         else:

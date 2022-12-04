@@ -13,12 +13,13 @@
 #    limitations under the License.
 
 import shutil
+import sys
 from typing import Tuple
 
 from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.configuration import default_num_threads
 from nnunet.evaluation.evaluator import aggregate_scores
-from nnunet.postprocessing.connected_components import determine_postprocessing
+from nnunet.postprocessing.connected_components import determine_postprocessing, determine_postprocessing_3rater_major, determine_postprocessing_3rater_random
 import argparse
 
 
@@ -40,7 +41,7 @@ def collect_cv_niftis(cv_folder: str, output_folder: str, validation_folder_name
             shutil.copy(n, join(output_folder))
 
 
-def consolidate_folds(output_folder_base, validation_folder_name: str = 'validation_raw',
+def consolidate_folds(output_folder_base, threshold, validation_folder_name: str = 'validation_raw',
                       advanced_postprocessing: bool = False, folds: Tuple[int] = (0, 1, 2, 3, 4)):
     """
     Used to determine the postprocessing for an experiment after all five folds have been completed. In the validation of
@@ -69,17 +70,116 @@ def consolidate_folds(output_folder_base, validation_folder_name: str = 'validat
 
     # load a summary file so that we can know what class labels to expect
     summary_fold0 = load_json(join(output_folder_base, "fold_0", validation_folder_name, "summary.json"))['results'][
-        'mean']
+        'median'] #changed from mean
     classes = [int(i) for i in summary_fold0.keys()]
     niftis = subfiles(output_folder_raw, join=False, suffix=".nii.gz")
     test_pred_pairs = [(join(output_folder_raw, i), join(output_folder_gt, i)) for i in niftis]
 
     # determine_postprocessing needs a summary.json file in the folder where the raw predictions are. We could compute
     # that from the summary files of the five folds but I am feeling lazy today
-    aggregate_scores(test_pred_pairs, labels=classes, json_output_file=join(output_folder_raw, "summary.json"),
+    aggregate_scores(test_pred_pairs, threshold=threshold, labels=classes,
+                     json_output_file=join(output_folder_raw, "summary.json"),
+                     excel_output_file=join(output_folder_raw, "summary.excel"),
                      num_threads=default_num_threads)
 
-    determine_postprocessing(output_folder_base, output_folder_gt, 'cv_niftis_raw',
+    determine_postprocessing(output_folder_base, output_folder_gt, threshold, 'cv_niftis_raw',
+                             final_subf_name="cv_niftis_postprocessed", processes=default_num_threads,
+                             advanced_postprocessing=advanced_postprocessing)
+    # determine_postprocessing will create a postprocessing.json file that can be used for inference
+
+def consolidate_folds_major(output_folder_base, threshold, validation_folder_name: str = 'validation_raw',
+                      advanced_postprocessing: bool = False, folds: Tuple[int] = (0, 1, 2, 3, 4)):
+    """
+    Used to determine the postprocessing for an experiment after all five folds have been completed. In the validation of
+    each fold, the postprocessing can only be determined on the cases within that fold. This can result in different
+    postprocessing decisions for different folds. In the end, we can only decide for one postprocessing per experiment,
+    so we have to rerun it
+    :param folds:
+    :param advanced_postprocessing:
+    :param output_folder_base:experiment output folder (fold_0, fold_1, etc must be subfolders of the given folder)
+    :param validation_folder_name: dont use this
+    :return:
+    """
+
+    output_folder_gt = '/home/sophie/NCCTfolders/nnUNet_preprocessed/Task123_experts/gt_segmentations_major'
+    output_folder_gt_major = '/home/sophie/NCCTfolders/nnUNet_preprocessed/Task123_experts/gt_segmentations'
+
+    output_folder_raw = join(output_folder_base, "cv_niftis_raw")
+    if isdir(output_folder_raw):
+        shutil.rmtree(output_folder_raw)
+
+    # output_folder_gt = join(output_folder_base, "gt_segmentation_major")
+    collect_cv_niftis(output_folder_base, output_folder_raw, validation_folder_name,
+                      folds)
+
+    num_niftis_gt = len(subfiles(join(output_folder_base, "gt_niftis"), suffix='.nii.gz'))
+    # count niftis in there
+    num_niftis = len(subfiles(output_folder_raw, suffix='.nii.gz'))
+    if num_niftis != num_niftis_gt:
+        raise AssertionError("If does not seem like you trained all the folds! Train all folds first!")
+
+    # load a summary file so that we can know what class labels to expect
+    summary_fold0 = load_json(join(output_folder_base, "fold_0", validation_folder_name, "summary.json"))['results'][
+        'median'] #changed from mean
+    classes = [int(i) for i in summary_fold0.keys()]
+    niftis = subfiles(output_folder_raw, join=False, suffix=".nii.gz")
+    test_pred_pairs = [(join(output_folder_raw, i), join(output_folder_gt, i)) for i in niftis]
+
+    # determine_postprocessing needs a summary.json file in the folder where the raw predictions are. We could compute
+    # that from the summary files of the five folds but I am feeling lazy today
+    aggregate_scores(test_pred_pairs, threshold=threshold, labels=classes,
+                     json_output_file=join(output_folder_raw, "summary.json"),
+                     excel_output_file=join(output_folder_raw, "summary.excel"),
+                     num_threads=default_num_threads)
+
+    determine_postprocessing_3rater_major(output_folder_base, output_folder_gt_major, output_folder_gt, threshold, 'cv_niftis_raw',
+                             final_subf_name="cv_niftis_postprocessed", processes=default_num_threads,
+                             advanced_postprocessing=advanced_postprocessing)
+    # determine_postprocessing will create a postprocessing.json file that can be used for inference
+
+def consolidate_folds_random(output_folder_base, threshold, validation_folder_name: str = 'validation_raw',
+                      advanced_postprocessing: bool = False, folds: Tuple[int] = (0, 1, 2, 3, 4)):
+    """
+    Used to determine the postprocessing for an experiment after all five folds have been completed. In the validation of
+    each fold, the postprocessing can only be determined on the cases within that fold. This can result in different
+    postprocessing decisions for different folds. In the end, we can only decide for one postprocessing per experiment,
+    so we have to rerun it
+    :param folds:
+    :param advanced_postprocessing:
+    :param output_folder_base:experiment output folder (fold_0, fold_1, etc must be subfolders of the given folder)
+    :param validation_folder_name: dont use this
+    :return:
+    """
+    output_folder_raw = join(output_folder_base, "cv_niftis_raw")
+    if isdir(output_folder_raw):
+        shutil.rmtree(output_folder_raw)
+
+    output_folder_gt = '/home/sophie/NCCTfolders/nnUNet_preprocessed/Task123_experts/gt_segmentations_random'
+    output_folder_gt_random = '/home/sophie/NCCTfolders/nnUNet_preprocessed/Task123_experts/gt_segmentations'
+    collect_cv_niftis(output_folder_base, output_folder_raw, validation_folder_name,
+                      folds)
+
+    num_niftis_gt = len(subfiles(join(output_folder_base, "gt_niftis"), suffix='.nii.gz'))
+    # count niftis in there
+    num_niftis = len(subfiles(output_folder_raw, suffix='.nii.gz'))
+    if num_niftis != num_niftis_gt:
+        raise AssertionError("If does not seem like you trained all the folds! Train all folds first!")
+
+    # load a summary file so that we can know what class labels to expect
+    summary_fold0 = load_json(join(output_folder_base, "fold_0", validation_folder_name, "summary.json"))['results'][
+        'median'] #changed from mean
+    classes = [int(i) for i in summary_fold0.keys()]
+    niftis = subfiles(output_folder_raw, join=False, suffix=".nii.gz")
+    test_pred_pairs = [(join(output_folder_raw, i), join(output_folder_gt, i)) for i in niftis]
+
+    # determine_postprocessing needs a summary.json file in the folder where the raw predictions are. We could compute
+    # that from the summary files of the five folds but I am feeling lazy today
+    aggregate_scores(test_pred_pairs, threshold=threshold, labels=classes,
+                     json_output_file=join(output_folder_raw, "summary.json"),
+                     excel_output_file=join(output_folder_raw, "summary.excel"),
+                     num_threads=default_num_threads)
+
+    determine_postprocessing_3rater_random(output_folder_base, output_folder_gt_random, output_folder_gt, threshold, 'cv_niftis_raw',
                              final_subf_name="cv_niftis_postprocessed", processes=default_num_threads,
                              advanced_postprocessing=advanced_postprocessing)
     # determine_postprocessing will create a postprocessing.json file that can be used for inference
@@ -91,6 +191,8 @@ if __name__ == "__main__":
                                                                "etc must be subfolders of the given folder)")
 
     args = argparser.parse_args()
+    print(args)
+    sys.exit()
 
     folder = args.f
 

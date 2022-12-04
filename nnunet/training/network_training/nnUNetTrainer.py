@@ -42,6 +42,7 @@ from nnunet.training.loss_functions.dice_loss import DC_and_CE_loss
 from nnunet.training.network_training.network_trainer import NetworkTrainer
 from nnunet.utilities.nd_softmax import softmax_helper
 from nnunet.utilities.tensor_utilities import sum_tensor
+from os.path import exists
 
 matplotlib.use("agg")
 
@@ -85,6 +86,8 @@ class nnUNetTrainer(NetworkTrainer):
         self.dataset_directory = dataset_directory
         self.output_folder_base = self.output_folder
         self.fold = fold
+        self.threshold = 1
+        self.gpu_id_to_use = None
 
         self.plans = None
 
@@ -531,6 +534,7 @@ class nnUNetTrainer(NetworkTrainer):
         """
         if debug=True then the temporary files generated for postprocessing determination will be kept
         """
+        torch.cuda.set_device(self.gpu_id_to_use)  # added from brian to have tensor and network both on gpu_id_to_use
 
         current_mode = self.network.training
         self.network.eval()
@@ -586,49 +590,54 @@ class nnUNetTrainer(NetworkTrainer):
         for k in self.dataset_val.keys():
             properties = load_pickle(self.dataset[k]['properties_file'])
             fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
+
+
             if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \
                     (save_softmax and not isfile(join(output_folder, fname + ".npz"))):
-                data = np.load(self.dataset[k]['data_file'])['data']
 
-                print(k, data.shape)
-                data[-1][data[-1] == -1] = 0
+                if not exists(join(output_folder, fname + ".nii.gz")):
 
-                softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(data[:-1],
-                                                                                     do_mirroring=do_mirroring,
-                                                                                     mirror_axes=mirror_axes,
-                                                                                     use_sliding_window=use_sliding_window,
-                                                                                     step_size=step_size,
-                                                                                     use_gaussian=use_gaussian,
-                                                                                     all_in_gpu=all_in_gpu,
-                                                                                     mixed_precision=self.fp16)[1]
+                    data = np.load(self.dataset[k]['data_file'])['data']
 
-                softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in self.transpose_backward])
+                    print(k, data.shape)
+                    data[-1][data[-1] == -1] = 0
 
-                if save_softmax:
-                    softmax_fname = join(output_folder, fname + ".npz")
-                else:
-                    softmax_fname = None
+                    softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(data[:-1],
+                                                                                         do_mirroring=do_mirroring,
+                                                                                         mirror_axes=mirror_axes,
+                                                                                         use_sliding_window=use_sliding_window,
+                                                                                         step_size=step_size,
+                                                                                         use_gaussian=use_gaussian,
+                                                                                         all_in_gpu=all_in_gpu,
+                                                                                         mixed_precision=self.fp16)[1]
 
-                """There is a problem with python process communication that prevents us from communicating objects
-                larger than 2 GB between processes (basically when the length of the pickle string that will be sent is
-                communicated by the multiprocessing.Pipe object then the placeholder (I think) does not allow for long
-                enough strings (lol). This could be fixed by changing i to l (for long) but that would require manually
-                patching system python code. We circumvent that problem here by saving softmax_pred to a npy file that will
-                then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either
-                filename or np.ndarray and will handle this automatically"""
-                if np.prod(softmax_pred.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
-                    np.save(join(output_folder, fname + ".npy"), softmax_pred)
-                    softmax_pred = join(output_folder, fname + ".npy")
+                    softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in self.transpose_backward])
 
-                results.append(export_pool.starmap_async(save_segmentation_nifti_from_softmax,
-                                                         ((softmax_pred, join(output_folder, fname + ".nii.gz"),
-                                                           properties, interpolation_order, self.regions_class_order,
-                                                           None, None,
-                                                           softmax_fname, None, force_separate_z,
-                                                           interpolation_order_z),
-                                                          )
-                                                         )
-                               )
+                    if save_softmax:
+                        softmax_fname = join(output_folder, fname + ".npz")
+                    else:
+                        softmax_fname = None
+
+                    """There is a problem with python process communication that prevents us from communicating objects
+                    larger than 2 GB between processes (basically when the length of the pickle string that will be sent is
+                    communicated by the multiprocessing.Pipe object then the placeholder (I think) does not allow for long
+                    enough strings (lol). This could be fixed by changing i to l (for long) but that would require manually
+                    patching system python code. We circumvent that problem here by saving softmax_pred to a npy file that will
+                    then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either
+                    filename or np.ndarray and will handle this automatically"""
+                    if np.prod(softmax_pred.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
+                        np.save(join(output_folder, fname + ".npy"), softmax_pred)
+                        softmax_pred = join(output_folder, fname + ".npy")
+
+                    results.append(export_pool.starmap_async(save_segmentation_nifti_from_softmax,
+                                                             ((softmax_pred, join(output_folder, fname + ".nii.gz"),
+                                                               properties, interpolation_order, self.regions_class_order,
+                                                               None, None,
+                                                               softmax_fname, None, force_separate_z,
+                                                               interpolation_order_z),
+                                                              )
+                                                             )
+                                   )
 
             pred_gt_tuples.append([join(output_folder, fname + ".nii.gz"),
                                    join(self.gt_niftis_folder, fname + ".nii.gz")])
@@ -640,8 +649,9 @@ class nnUNetTrainer(NetworkTrainer):
         self.print_to_log_file("evaluation of raw predictions")
         task = self.dataset_directory.split("/")[-1]
         job_name = self.experiment_name
-        _ = aggregate_scores(pred_gt_tuples, labels=list(range(self.num_classes)),
+        _ = aggregate_scores(pred_gt_tuples,  threshold=self.threshold, labels=list(range(self.num_classes)),
                              json_output_file=join(output_folder, "summary.json"),
+                             excel_output_file=join(output_folder, "summary.xlsx"),
                              json_name=job_name + " val tiled %s" % (str(use_sliding_window)),
                              json_author="Fabian",
                              json_task=task, num_threads=default_num_threads)
@@ -652,7 +662,7 @@ class nnUNetTrainer(NetworkTrainer):
             # classes and then rerun the evaluation. Those classes for which this resulted in an improved dice score will
             # have this applied during inference as well
             self.print_to_log_file("determining postprocessing")
-            determine_postprocessing(self.output_folder, self.gt_niftis_folder, validation_folder_name,
+            determine_postprocessing(self.output_folder, self.gt_niftis_folder, self.threshold, validation_folder_name,
                                      final_subf_name=validation_folder_name + "_postprocessed", debug=debug)
             # after this the final predictions for the vlaidation set can be found in validation_folder_name_base + "_postprocessed"
             # They are always in that folder, even if no postprocessing as applied!

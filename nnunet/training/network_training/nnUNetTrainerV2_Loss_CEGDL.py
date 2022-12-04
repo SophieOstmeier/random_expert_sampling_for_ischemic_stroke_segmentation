@@ -33,8 +33,8 @@ class nnUNetTrainerV2_Loss_CEGDL(nnUNetTrainerV2):
         self.max_num_epochs = 300  # changed from 1000
         self.initial_lr = 1e-2  # changed from 3e-5
         self.weight_decay = 5e-5  # changed from 3e-5
-        self.gpu_id_to_use = 0
-        self.threshold = 0 # changed from 0
+        self.gpu_id_to_use = 1
+        self.threshold = 1 # changed from 0
         self.momentum = 0.9  # changed from 0.99
 
     def initialize_optimizer_and_scheduler(self):

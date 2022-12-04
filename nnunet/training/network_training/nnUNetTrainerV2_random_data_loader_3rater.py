@@ -11,8 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-import SimpleITK
-from nnunet.training.dataloading.dataset_loading_majority_sampling import unpack_dataset,load_dataset_major, DataLoader3D_major
+from nnunet.training.dataloading.dataset_loading_random_sampling import unpack_dataset,load_dataset_random, DataLoader3D_random
 from nnunet.training.loss_functions.deep_supervision import MultipleOutputLoss2
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 from nnunet.training.data_augmentation.data_augmentation_moreDA import get_moreDA_augmentation
@@ -23,28 +22,22 @@ from nnunet.configuration import default_num_threads
 from nnunet.evaluation.evaluator import aggregate_scores
 from nnunet.inference.segmentation_export import save_segmentation_nifti_from_softmax
 from nnunet.network_architecture.neural_network import SegmentationNetwork
-from nnunet.postprocessing.connected_components import determine_postprocessing
-import shutil
+from nnunet.postprocessing.connected_components import determine_postprocessing_3rater_random
 from multiprocessing import Pool
 from time import sleep
 import random
 import torch
-
 from os.path import exists
-import sys
+import shutil
 
-
-class nnUNetTrainerV2_majority_data_loader(nnUNetTrainerV2):
+class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
                  unpack_data=True, deterministic=True, fp16=False):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
-        self.max_num_epochs = 500 # changed from 1000
-        self.gpu_id_to_use = 1
-        self.threshold = 1
-        self.gt_niftis_folder_major = self.gt_niftis_folder + '_major'
-
-
+        self.max_num_epochs = 650 # changed from 1000
+        self.threshold = 1.0
+        self.gt_niftis_folder_random = self.gt_niftis_folder + '_random'
 
     def initialize(self, training=True, force_load_plans=False):
         """
@@ -123,6 +116,7 @@ class nnUNetTrainerV2_majority_data_loader(nnUNetTrainerV2):
                                        also_print_to_console=False)
             else:
                 pass
+
             torch.cuda.set_device(self.gpu_id_to_use)  # added from brian to have tensor and network both on gpu_id_to_use
 
             self.initialize_network()
@@ -134,16 +128,16 @@ class nnUNetTrainerV2_majority_data_loader(nnUNetTrainerV2):
         self.was_initialized = True
 
     def load_dataset(self):
-        self.dataset = load_dataset_major(self.folder_with_preprocessed_data)
+        self.dataset = load_dataset_random(self.folder_with_preprocessed_data)
 
     def get_basic_generators(self):
         self.load_dataset()
         self.do_split()
 
-        dl_tr = DataLoader3D_major(self.dataset_tr, self.patch_size, self.patch_size, self.batch_size, False,
+        dl_tr = DataLoader3D_random(self.dataset_tr, self.patch_size, self.patch_size, self.batch_size, False,
                                   oversample_foreground_percent=self.oversample_foreground_percent,
                                   pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r')
-        dl_val = DataLoader3D_major(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, False,
+        dl_val = DataLoader3D_random(self.dataset_val, self.patch_size, self.patch_size, self.batch_size, False,
                                   oversample_foreground_percent=self.oversample_foreground_percent,
                                   pad_mode="constant", pad_sides=self.pad_all_sides, memmap_mode='r')
 
@@ -157,14 +151,13 @@ class nnUNetTrainerV2_majority_data_loader(nnUNetTrainerV2):
         if debug=True then the temporary files generated for postprocessing determination will be kept
         """
 
+        # creat self.gt_niftis_folder_random if not already
+        maybe_mkdir_p(self.gt_niftis_folder_random)
+
         torch.cuda.set_device(self.gpu_id_to_use)  # added from brian to have tensor and network both on gpu_id_to_use
 
         current_mode = self.network.training
         self.network.eval()
-
-        # make dir for majority mask
-        maybe_mkdir_p(self.gt_niftis_folder_major)
-        print(self.gt_niftis_folder_major)
 
         assert self.was_initialized, "must initialize, ideally with checkpoint (or train first)"
         if self.dataset_val is None:
@@ -217,35 +210,27 @@ class nnUNetTrainerV2_majority_data_loader(nnUNetTrainerV2):
         for k in self.dataset_val.keys():
             properties = load_pickle(self.dataset[k]['properties_file'])
             fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
-            if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \
-                        (save_softmax and not isfile(join(output_folder, fname + ".npz"))):
 
-                    # major_seg = random.choice(major_seg_list)
-                    # print(major_se
+            random_seg_list = ['data_file_Abdel', 'data_file_Ben', 'data_file_Jeremy']
+            random_seg = random.choice(random_seg_list)
+
+            if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \
+                    (save_softmax and not isfile(join(output_folder, fname + ".npz"))):
+
+                if not exists(join(output_folder, fname + ".nii.gz")):
+                    data = np.load(self.dataset[k][random_seg])['data']
 
                     # print(k, data.shape)
-                if not exists(join(output_folder, fname + ".nii.gz")):
-
-                    major_seg_list = ['data_file_Abdel', 'data_file_Ben', 'data_file_Jeremy']
-                    for a in major_seg_list:
-                        case_all_data_expert = np.load(self.dataset[k][a])['data']
-                        data_list.append(case_all_data_expert[1, :, :, :])
-                    case_all_data_sum = sum(data_list) > 1.
-                    case_all_data_seg = case_all_data_sum.astype(np.float)
-                    # Stack majority vote segmentation to input image. It does not matter which one. All experts have the same input image
-                    # We could exchange Abdel for any other experts
-                    data = np.stack((np.load(self.dataset[k]['data_file_Abdel'])['data'][0, :, :, :], case_all_data_seg), axis=0)
-                    print(k, data.shape)
                     data[-1][data[-1] == -1] = 0
 
                     softmax_pred = self.predict_preprocessed_data_return_seg_and_softmax(data[:-1],
-                                                                                             do_mirroring=do_mirroring,
-                                                                                             mirror_axes=mirror_axes,
-                                                                                             use_sliding_window=use_sliding_window,
-                                                                                             step_size=step_size,
-                                                                                             use_gaussian=use_gaussian,
-                                                                                             all_in_gpu=all_in_gpu,
-                                                                                             mixed_precision=self.fp16)[1]
+                                                                                         do_mirroring=do_mirroring,
+                                                                                         mirror_axes=mirror_axes,
+                                                                                         use_sliding_window=use_sliding_window,
+                                                                                         step_size=step_size,
+                                                                                         use_gaussian=use_gaussian,
+                                                                                         all_in_gpu=all_in_gpu,
+                                                                                         mixed_precision=self.fp16)[1]
 
                     softmax_pred = softmax_pred.transpose([0] + [i + 1 for i in self.transpose_backward])
 
@@ -254,48 +239,35 @@ class nnUNetTrainerV2_majority_data_loader(nnUNetTrainerV2):
                     else:
                         softmax_fname = None
 
-                        """There is a problem with python process communication that prevents us from communicating objects
-                        larger than 2 GB between processes (basically when the length of the pickle string that will be sent is
-                        communicated by the multiprocessing.Pipe object then the placeholder (I think) does not allow for long
-                        enough strings (lol). This could be fixed by changing i to l (for long) but that would require manually
-                        patching system python code. We circumvent that problem here by saving softmax_pred to a npy file that will
-                        then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either
-                        filename or np.ndarray and will handle this automatically"""
+                    """There is a problem with python process communication that prevents us from communicating objects
+                    larger than 2 GB between processes (basically when the length of the pickle string that will be sent is
+                    communicated by the multiprocessing.Pipe object then the placeholder (I think) does not allow for long
+                    enough strings (lol). This could be fixed by changing i to l (for long) but that would require manually
+                    patching system python code. We circumvent that problem here by saving softmax_pred to a npy file that will
+                    then be read (and finally deleted) by the Process. save_segmentation_nifti_from_softmax can take either
+                    filename or np.ndarray and will handle this automatically"""
                     if np.prod(softmax_pred.shape) > (2e9 / 4 * 0.85):  # *0.85 just to be save
                         np.save(join(output_folder, fname + ".npy"), softmax_pred)
                         softmax_pred = join(output_folder, fname + ".npy")
 
                     results.append(export_pool.starmap_async(save_segmentation_nifti_from_softmax,
-                                                                 ((softmax_pred, join(output_folder, fname + ".nii.gz"),
-                                                                   properties, interpolation_order, self.regions_class_order,
-                                                                   None, None,
-                                                                   softmax_fname, None, force_separate_z,
-                                                                   interpolation_order_z),
-                                                                  )
-                                                                 )
-                                       )
+                                                             ((softmax_pred, join(output_folder, fname + ".nii.gz"),
+                                                               properties, interpolation_order, self.regions_class_order,
+                                                               None, None,
+                                                               softmax_fname, None, force_separate_z,
+                                                               interpolation_order_z),
+                                                              )
+                                                             )
+                                   )
+            # save random rater mask for validation if not already done so
 
-            # save majority vote mask for validation if not already done so
+            if not exists(join(self.gt_niftis_folder_random, fname + ".nii.gz")):
+                shutil.copyfile(join(f'{self.gt_niftis_folder}_{random_seg.rsplit("_", 1)[-1]}', fname + ".nii.gz"),
+                                join(self.gt_niftis_folder_random, fname + ".nii.gz"))
 
-            if not exists(join(self.gt_niftis_folder_major, fname + ".nii.gz")):
-                data_list = []
-                major_seg_gt_list = [self.gt_niftis_folder + '_Abdel',
-                                     self.gt_niftis_folder + '_Ben',
-                                     self.gt_niftis_folder + '_Jeremy']
-                for a in major_seg_gt_list:
-                    case_all_data_expert = SimpleITK.ReadImage(join(a, fname + ".nii.gz"))
-                    data_list.append(SimpleITK.GetArrayFromImage(case_all_data_expert))
 
-                case_all_data_sum = sum(data_list) > 1.
-                case_all_data_seg = case_all_data_sum.astype(np.float)
-
-                # no stacking with image necessary here
-                image = SimpleITK.GetImageFromArray(case_all_data_seg)
-                SimpleITK.WriteImage(image, join(self.gt_niftis_folder_major, fname + ".nii.gz"))
-
-            # make tuples for prediction
             pred_gt_tuples.append([join(output_folder, fname + ".nii.gz"),
-                                       join(self.gt_niftis_folder_major, fname + ".nii.gz")])
+                                   join(self.gt_niftis_folder_random, fname + ".nii.gz")])
 
         _ = [i.get() for i in results]
         self.print_to_log_file("finished prediction")
@@ -317,18 +289,18 @@ class nnUNetTrainerV2_majority_data_loader(nnUNetTrainerV2):
             # classes and then rerun the evaluation. Those classes for which this resulted in an improved dice score will
             # have this applied during inference as well
             self.print_to_log_file("determining postprocessing")
-            determine_postprocessing(self.output_folder, self.gt_niftis_folder_major, self.threshold, validation_folder_name,
+            determine_postprocessing_3rater_random(self.output_folder, self.gt_niftis_folder, self.gt_niftis_folder_random, self.threshold, validation_folder_name,
                                      final_subf_name=validation_folder_name + "_postprocessed", debug=debug)
             # after this the final predictions for the vlaidation set can be found in validation_folder_name_base + "_postprocessed"
             # They are always in that folder, even if no postprocessing as applied!
 
         # detemining postprocesing on a per-fold basis may be OK for this fold but what if another fold finds another
         # postprocesing to be better? In this case we need to consolidate. At the time the consolidation is going to be
-        # done we won't know what self.gt_niftis_folder_major was, so now we copy all the niftis into a separate folder to
+        # done we won't know what self.gt_niftis_folder was, so now we copy all the niftis into a separate folder to
         # be used later
         gt_nifti_folder = join(self.output_folder_base, "gt_niftis")
         maybe_mkdir_p(gt_nifti_folder)
-        for f in subfiles(self.gt_niftis_folder_major, suffix=".nii.gz"):
+        for f in subfiles(self.gt_niftis_folder_random, suffix=".nii.gz"):
             success = False
             attempts = 0
             e = None

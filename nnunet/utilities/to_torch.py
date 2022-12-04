@@ -23,9 +23,9 @@ def maybe_to_torch(d):
     return d
 
 
-def to_cuda(data, non_blocking=True, gpu_id=0):
+def to_cuda(data, gpu_id_to_use, non_blocking=True):
     if isinstance(data, list):
-        data = [i.cuda(gpu_id, non_blocking=non_blocking) for i in data]
+        data = [i.cuda(gpu_id_to_use, non_blocking=non_blocking) for i in data]
     else:
-        data = data.cuda(gpu_id, non_blocking=non_blocking)
+        data = data.cuda(gpu_id_to_use, non_blocking=non_blocking)
     return data

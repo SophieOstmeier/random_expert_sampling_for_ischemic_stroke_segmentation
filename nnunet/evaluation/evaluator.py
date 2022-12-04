@@ -39,13 +39,16 @@ class Evaluator:
 
     default_metrics = [
         "Dice",
-        "Surface Dice at Tolerance 0mm",
+        #"False Discovery Rate",
+        #"False Omission Rate",
+        #"Surface Dice at Tolerance 0mm",
+        "Surface Dice at Tolerance 2mm",
         "Surface Dice at Tolerance 5mm",
         "Surface Dice at Tolerance 10mm",
         "Hausdorff Distance 95",
         "Precision",
         "Recall",
-        "Avg. Surface Distance",
+        #"Avg. Surface Distance",
         "Total Positives Test",
         "Total Positives Reference",
         "Volume Reference",
@@ -145,10 +148,10 @@ class Evaluator:
     
     def set_threshold(self, threshold):
         """Set the threshold.
-        :param threshold= integer in ml to switch to detection task"""
+        :param threshold= float in ml to switch to detection task"""
 
-        if isinstance(threshold, int):
-            self.threshold = threshold
+        if isinstance(threshold, float):
+            self.threshold = float(threshold)
             self.detection = True
         else:
             raise TypeError("Can integer but input is of type {}".format(type(threshold)))
@@ -180,7 +183,7 @@ class Evaluator:
         if metric not in self.metrics:
             self.metrics.append(metric)
 
-    def evaluate(self, test=None, reference=None,threshold=None, advanced=False, **metric_kwargs):
+    def evaluate(self, test=None, reference=None,threshold=None, voxel_spacing=None, advanced=False, **metric_kwargs):
         """Compute metrics for segmentations."""
         if test is not None:
             self.set_test(test)
@@ -221,7 +224,7 @@ class Evaluator:
         eval_metrics = self.metrics
         if advanced:
             eval_metrics += self.advanced_metrics
-        if isinstance(self.threshold, int):
+        if isinstance(self.threshold, float):
             eval_metrics += self.default_detection
 
         if isinstance(self.labels, dict):
@@ -240,10 +243,11 @@ class Evaluator:
                         current_reference += (self.reference == l)
                     self.confusion_matrix.set_test(current_test)
                     self.confusion_matrix.set_reference(current_reference)
+                    self.confusion_matrix.set_threshold(self.threshold)
+                    self.confusion_matrix.set_voxel_spacing(voxel_spacing)
                 for metric in eval_metrics:
                     self.result[k][metric] = _funcs[metric](confusion_matrix=self.confusion_matrix,
-                                                               nan_for_nonexisting=self.nan_for_nonexisting,
-                                                            threshold=self.threshold,
+                                                            nan_for_nonexisting=self.nan_for_nonexisting,
                                                                **metric_kwargs)
 
         else:
@@ -253,10 +257,11 @@ class Evaluator:
                 self.result[k] = OrderedDict()
                 self.confusion_matrix.set_test(self.test == l)
                 self.confusion_matrix.set_reference(self.reference == l)
+                self.confusion_matrix.set_threshold(self.threshold)
+                self.confusion_matrix.set_voxel_spacing(voxel_spacing)
                 for metric in eval_metrics:
                     self.result[k][metric] = _funcs[metric](confusion_matrix=self.confusion_matrix,
                                                             nan_for_nonexisting=self.nan_for_nonexisting,
-                                                            threshold=self.threshold,
                                                             **metric_kwargs)
 
         return self.result
@@ -497,19 +502,9 @@ def aggregate_scores(test_ref_pair,
         # calculate AUC for label > 0
         if int(label) > 0:
             y_true = np.array([i[label]['Volume Reference'] for i in all_scores["all"]])
-            print(y_true)
             y_true = (y_true > threshold) * 1
-            # y_true[y_true > threshold] = 0
-            # y_true[y_true < threshold] = 1
             y_score = np.array([i[label]['Volume Test'] for i in all_scores["all"]])
-            print(y_true)
-            print(y_score)
             all_scores["image-level classification"][label]["image-level AUC"] = roc_auc_score(y_true,y_score)
-            print(all_scores["image-level classification"][label]["image-level AUC"] )
-            #plot_roc_curve(y_true, y_score)
-            #plt.show()
-            #print(all_scores["image-level classification"][label]["image-level AUC"])
-            #sys.exit()
 
     # save to file if desired
     # we create a hopefully unique id by hashing the entire output dictionary
@@ -528,16 +523,19 @@ def aggregate_scores(test_ref_pair,
         df2 = pd.DataFrame(all_scores["mean"])
         df3 = pd.DataFrame(all_scores["median"])
         df4 = pd.DataFrame(all_scores["image-level classification"])
-        with pd.ExcelWriter(excel_output_file) as writer:
-            df1.to_excel(writer, sheet_name = 'all' )
-            df2.to_excel(writer, sheet_name = 'mean')
-            df3.to_excel(writer, sheet_name = 'median')
-            df4.to_excel(writer, sheet_name = 'image-level classification')
+        try:
+            with pd.ExcelWriter(excel_output_file) as writer:
+                df1.to_excel(writer, sheet_name = 'all')
+                df2.to_excel(writer, sheet_name = 'mean')
+                df3.to_excel(writer, sheet_name = 'median')
+                df4.to_excel(writer, sheet_name = 'image-level classification')
+        except:
+            print('no excel file name defined')
         print(f'results can be found here: {excel_output_file}')
     return all_scores
 
 
-def evaluate_folder(folder_with_gts: str, folder_with_predictions: str,th: int, labels: tuple, **metric_kwargs):
+def evaluate_folder(folder_with_gts: str, folder_with_predictions: str,th: float, labels: tuple, **metric_kwargs):
     """
     writes a summary.json to folder_with_predictions
     :param folder_with_gts: folder where the ground truth segmentations are saved. Must be nifti files.
@@ -545,7 +543,7 @@ def evaluate_folder(folder_with_gts: str, folder_with_predictions: str,th: int, 
     :param labels: tuple of int with the labels in the dataset. For example (0, 1, 2, 3) for Task001_BrainTumour.
     :return:
     """
-    if isinstance(th, int):
+    if isinstance(th, float):
         threshold = th
     else:
         threshold = None

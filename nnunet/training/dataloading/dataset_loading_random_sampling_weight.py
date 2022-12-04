@@ -11,13 +11,12 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
+import re
 from collections import OrderedDict
-
-import SimpleITK
-import nibabel
 import numpy as np
 from multiprocessing import Pool
+from natsort import natsorted
+import sys
 
 from batchgenerators.dataloading.data_loader import SlimDataLoaderBase
 
@@ -121,7 +120,7 @@ def load_dataset_random(folder, num_cases_properties_loading_threshold=1000):
 
     return dataset
 
-class DataLoader3D_random(SlimDataLoaderBase):
+class DataLoader3D_random_weight(SlimDataLoaderBase):
     def __init__(self, data, patch_size, final_patch_size, batch_size, has_prev_stage=False,
                  oversample_foreground_percent=0.33, memmap_mode="r+", pad_mode="edge", pad_kwargs_data=None,
                  pad_sides=None):
@@ -140,7 +139,7 @@ class DataLoader3D_random(SlimDataLoaderBase):
         :param random: Sample keys randomly; CAREFUL! non-random sampling requires batch_size=1, otherwise you will iterate batch_size times over the dataset
         :param oversample_foreground: half the batch will be forced to contain at least some foreground (equal prob for each of the foreground classes)
         """
-        super(DataLoader3D_random, self).__init__(data, batch_size, None)
+        super(DataLoader3D_random_weight, self).__init__(data, batch_size, None)
         if pad_kwargs_data is None:
             pad_kwargs_data = OrderedDict()
         self.pad_kwargs_data = pad_kwargs_data
@@ -182,10 +181,39 @@ class DataLoader3D_random(SlimDataLoaderBase):
         seg_shape = (self.batch_size, num_seg, *self.patch_size)
         return data_shape, seg_shape
 
+    def get_id(self, case):
+        return int(re.findall('[0-9]+', case)[0])
+
     def generate_train_batch(self):
-        selected_keys = np.random.choice(self.list_of_keys, self.batch_size, True, None)
+
+        # make a list of weights to approximate the distribution in clinical practice for patient with sus
+        # pected stroke
+        weights = []
+        for a in natsorted(self.list_of_keys): # sort keys the same as weights
+            id = re.findall('[0-9]+', a)[0] # get id numbers
+            if int(id) < 300:
+                weights.append(0.55) # ischemic stroke
+            elif 300 <= int(id) < 500:
+                weights.append(0.35) # healthy/mimics stroke
+            else:
+                weights.append(0.10) # hemorragic stroke stroke
+
+        propability_weights = list(map(lambda x: x/sum(weights), weights))
+
+        ischemic_stroke_cases = [k for k in self.list_of_keys if self.get_id(k) < 300]
+        print('ischemic stroke patients are',ischemic_stroke_cases, 'and length is:', len(ischemic_stroke_cases), 'of:',
+              len(self.list_of_keys))
+        sys.exit()
+
+
+        selected_keys = np.random.choice(natsorted(self.list_of_keys), self.batch_size, True, propability_weights)
+
+        selected_keys = np.random.choice(natsorted(self.list_of_keys), self.batch_size, True, propability_weights)
+
         data = np.zeros(self.data_shape, dtype=np.float32)
         seg = np.zeros(self.seg_shape, dtype=np.float32)
+
+        # segmentation to choose from
         random_seg_list = ['data_file_Abdel', 'data_file_Ben', 'data_file_Jeremy']
         case_properties = []
         for j, i in enumerate(selected_keys):

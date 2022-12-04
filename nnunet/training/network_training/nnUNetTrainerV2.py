@@ -45,13 +45,22 @@ class nnUNetTrainerV2(nnUNetTrainer):
                  unpack_data=True, deterministic=True, fp16=False):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
-        self.max_num_epochs = 1000
+        self.max_num_epochs = 500
         self.initial_lr = 1e-2
         self.deep_supervision_scales = None
         self.ds_loss_weights = None
+        self.threshold = int(1)
+        self.gpu_id_to_use = self.get_free_gpu()
+        self.smooth = 1e-5
+        self.oversample_foreground_percent = 0.33
 
         self.pin_memory = True
 
+    def get_free_gpu(self):
+        gpus = [torch.cuda.memory_usage(device=0),torch.cuda.memory_usage(device=1)]
+        print('Current memory usage for CUDA=0:', gpus[0],'and for CUDA=1:', gpus[1])
+        print('Choosing:', np.argmin(gpus))
+        return int(np.argmin(gpus))
     def initialize(self, training=True, force_load_plans=False):
         """
         - replaced get_default_augmentation with get_moreDA_augmentation
@@ -117,7 +126,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
                                        also_print_to_console=False)
             else:
                 pass
-
+            torch.cuda.set_device(self.gpu_id_to_use) # added from brian to have tensor and network both on gpu_id_to_use
             self.initialize_network()
             self.initialize_optimizer_and_scheduler()
 
@@ -158,6 +167,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
                                     net_nonlin, net_nonlin_kwargs, True, False, lambda x: x, InitWeights_He(1e-2),
                                     self.net_num_pool_op_kernel_sizes, self.net_conv_kernel_sizes, False, True, True)
         if torch.cuda.is_available():
+            torch.cuda.set_device(self.gpu_id_to_use)
             self.network.cuda()
         self.network.inference_apply_nonlin = softmax_helper
 
@@ -186,6 +196,9 @@ class nnUNetTrainerV2(nnUNetTrainer):
         """
         We need to wrap this because we need to enforce self.network.do_ds = False for prediction
         """
+
+        torch.cuda.set_device(self.gpu_id_to_use)  # added from brian to have tensor and network both on gpu_id_to_use
+
         ds = self.network.do_ds
         self.network.do_ds = False
         ret = super().validate(do_mirroring=do_mirroring, use_sliding_window=use_sliding_window, step_size=step_size,
@@ -237,8 +250,8 @@ class nnUNetTrainerV2(nnUNetTrainer):
         target = maybe_to_torch(target)
 
         if torch.cuda.is_available():
-            data = to_cuda(data)
-            target = to_cuda(target)
+            data = to_cuda(data, self.gpu_id_to_use)
+            target = to_cuda(target, self.gpu_id_to_use)
 
         self.optimizer.zero_grad()
 

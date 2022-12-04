@@ -11,6 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+import re
 import shutil
 from itertools import combinations
 import nnunet
@@ -21,7 +22,7 @@ from nnunet.evaluation.model_selection.ensemble import ensemble
 from nnunet.paths import network_training_output_dir
 import numpy as np
 from subprocess import call
-from nnunet.postprocessing.consolidate_postprocessing import consolidate_folds, collect_cv_niftis
+from nnunet.postprocessing.consolidate_postprocessing import consolidate_folds, collect_cv_niftis, consolidate_folds_random, consolidate_folds_major
 from nnunet.utilities.folder_names import get_output_folder_name
 from nnunet.paths import default_cascade_trainer, default_trainer, default_plans_identifier
 
@@ -55,6 +56,9 @@ def main():
                                                                               '3d_cascade_fullres'])
     parser.add_argument("-t", '--task_ids', nargs="+", required=True)
 
+    parser.add_argument("-threshold",
+                        type=float, required=True, default=1)
+
     parser.add_argument("-tr", type=str, required=False, default=default_trainer,
                         help="nnUNetTrainer class. Default: %s" % default_trainer)
     parser.add_argument("-ctr", type=str, required=False, default=default_cascade_trainer,
@@ -73,6 +77,7 @@ def main():
     tasks = [int(i) for i in args.task_ids]
 
     models = args.models
+    threshold = args.threshold
     tr = args.tr
     trc = args.ctr
     pl = args.pl
@@ -141,7 +146,14 @@ def main():
                 # postprocessing_json. If either of those is missing, rerun consolidate_folds
                 if not isfile(postprocessing_json) or not isdir(cv_niftis_folder):
                     print("running missing postprocessing for %s and model %s" % (id_task_mapping[t], m))
-                    consolidate_folds(output_folder, folds=folds)
+                    if 'major' in tr:
+                        print(f'For {tr} I use consolidate_folds_major')
+                        consolidate_folds_major(output_folder, threshold, folds=folds)
+                    elif 'random' in tr:
+                        print(f'For {tr} I use consolidate_folds_random')
+                        consolidate_folds_random(output_folder, threshold, folds=folds)
+                    else:
+                        consolidate_folds(output_folder, threshold, folds=folds)
 
                 assert isfile(postprocessing_json), "Postprocessing json missing, expected: %s" % postprocessing_json
                 assert isdir(cv_niftis_folder), "Folder with niftis from CV missing, expected: %s" % cv_niftis_folder

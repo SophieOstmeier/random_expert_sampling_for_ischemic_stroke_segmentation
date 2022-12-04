@@ -16,7 +16,7 @@
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 import torch
 
-from nnunet.network_architecture.generic_UNet import Generic_UNet_flip
+from nnunet.network_architecture.generic_UNet import Generic_UNet_prediction
 from nnunet.network_architecture.initialization import InitWeights_He
 from nnunet.utilities.nd_softmax import softmax_helper
 from sklearn.model_selection import KFold
@@ -37,6 +37,8 @@ class nnUNetTrainerV2_flip_network(nnUNetTrainerV2):
         self.threshold = 1  # changed from 0
         self.momentum = 0.99  # changed from 0.99
         self.dropout_num = 0.0  # changed from 0.0
+
+        self.oversample_foreground_percent = 0.4
 
     def initialize_optimizer_and_scheduler(self):
         assert self.network is not None, "self.initialize_network must be called first"
@@ -72,7 +74,7 @@ class nnUNetTrainerV2_flip_network(nnUNetTrainerV2):
         net_nonlin_kwargs = {'negative_slope': 1e-2, 'inplace': True}
 
 
-        self.network = Generic_UNet_flip(self.num_input_channels, self.base_num_features, self.num_classes,
+        self.network = Generic_UNet_prediction(self.num_input_channels, self.base_num_features, self.num_classes,
                                     len(self.net_num_pool_op_kernel_sizes),
                                     self.conv_per_stage, 2, conv_op, norm_op, norm_op_kwargs, dropout_op,
                                     dropout_op_kwargs,

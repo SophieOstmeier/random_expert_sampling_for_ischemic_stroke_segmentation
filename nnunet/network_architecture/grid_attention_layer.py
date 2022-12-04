@@ -31,12 +31,12 @@ def weights_init_kaiming(m):
     classname = m.__class__.__name__
     #print(classname)
     if classname.find('Conv') != -1:
-        init.kaiming_normal(m.weight.data, a=0, mode='fan_in')
+        init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')
     elif classname.find('Linear') != -1:
-        init.kaiming_normal(m.weight.data, a=0, mode='fan_in')
+        init.kaiming_normal_(m.weight.data, a=0, mode='fan_in')
     elif classname.find('BatchNorm') != -1:
-        init.normal(m.weight.data, 1.0, 0.02)
-        init.constant(m.bias.data, 0.0)
+        init.normal_(m.weight.data, 1.0, 0.02)
+        init.constant_(m.bias.data, 0.0)
 
 
 def weights_init_orthogonal(m):
@@ -62,71 +62,6 @@ def init_weights(net, init_type='normal'):
         net.apply(weights_init_orthogonal)
     else:
         raise NotImplementedError('initialization method [%s] is not implemented' % init_type)
-
-class StackedConvLayers(nn.Module):
-    def __init__(self, input_feature_channels, output_feature_channels, num_convs,
-                 conv_op=nn.Conv2d, conv_kwargs=None,
-                 norm_op=nn.BatchNorm2d, norm_op_kwargs=None,
-                 dropout_op=nn.Dropout2d, dropout_op_kwargs=None,
-                 nonlin=nn.LeakyReLU, nonlin_kwargs=None, first_stride=None, basic_block=ConvDropoutNormNonlin):
-        '''
-        stacks ConvDropoutNormLReLU layers. initial_stride will only be applied to first layer in the stack. The other parameters affect all layers
-        :param input_feature_channels:
-        :param output_feature_channels:
-        :param num_convs:
-        :param dilation:
-        :param kernel_size:
-        :param padding:
-        :param dropout:
-        :param initial_stride:
-        :param conv_op:
-        :param norm_op:
-        :param dropout_op:
-        :param inplace:
-        :param neg_slope:
-        :param norm_affine:
-        :param conv_bias:
-        '''
-        self.input_channels = input_feature_channels
-        self.output_channels = output_feature_channels
-
-        if nonlin_kwargs is None:
-            nonlin_kwargs = {'negative_slope': 1e-2, 'inplace': True}
-        if dropout_op_kwargs is None:
-            dropout_op_kwargs = {'p': 0.5, 'inplace': True}
-        if norm_op_kwargs is None:
-            norm_op_kwargs = {'eps': 1e-5, 'affine': True, 'momentum': 0.1}
-        if conv_kwargs is None:
-            conv_kwargs = {'kernel_size': 3, 'stride': 1, 'padding': 1, 'dilation': 1, 'bias': True}
-
-        self.nonlin_kwargs = nonlin_kwargs
-        self.nonlin = nonlin
-        self.dropout_op = dropout_op
-        self.dropout_op_kwargs = dropout_op_kwargs
-        self.norm_op_kwargs = norm_op_kwargs
-        self.conv_kwargs = conv_kwargs
-        self.conv_op = conv_op
-        self.norm_op = norm_op
-
-        if first_stride is not None:
-            self.conv_kwargs_first_conv = deepcopy(conv_kwargs)
-            self.conv_kwargs_first_conv['stride'] = first_stride
-        else:
-            self.conv_kwargs_first_conv = conv_kwargs
-
-        super(StackedConvLayers, self).__init__()
-        self.blocks = nn.Sequential(
-            *([basic_block(input_feature_channels, output_feature_channels, self.conv_op,
-                           self.conv_kwargs_first_conv,
-                           self.norm_op, self.norm_op_kwargs, self.dropout_op, self.dropout_op_kwargs,
-                           self.nonlin, self.nonlin_kwargs)] +
-              [basic_block(output_feature_channels, output_feature_channels, self.conv_op,
-                           self.conv_kwargs,
-                           self.norm_op, self.norm_op_kwargs, self.dropout_op, self.dropout_op_kwargs,
-                           self.nonlin, self.nonlin_kwargs) for _ in range(num_convs - 1)]))
-
-    def forward(self, x):
-        return self.blocks(x)
 
 class _GridAttentionBlockND(nn.Module):
     def __init__(self, in_channels, gating_channels, inter_channels=None, dimension=3, mode='concatenation',
@@ -207,8 +142,8 @@ class _GridAttentionBlockND(nn.Module):
 
     def _concatenation(self, x, g):
         input_size = x.size()
-        batch_size = input_size[0]
-        assert batch_size == g.size(0)
+        batch_size = 1
+        #assert batch_size == g.size(0)
 
         # theta => (b, c, t, h, w) -> (b, i_c, t, h, w) -> (b, i_c, thw)
         # phi   => (b, g_d) -> (b, i_c)
@@ -217,14 +152,14 @@ class _GridAttentionBlockND(nn.Module):
 
         # g (b, c, t', h', w') -> phi_g (b, i_c, t', h', w')
         #  Relu(theta_x + phi_g + bias) -> f = (b, i_c, thw) -> (b, i_c, t/s1, h/s2, w/s3)
-        phi_g = F.upsample(self.phi(g), size=theta_x_size[2:], mode=self.upsample_mode)
+        phi_g = F.interpolate(self.phi(g), size=theta_x_size[2:], mode=self.upsample_mode)
         f = F.relu(theta_x + phi_g, inplace=True)
 
         #  psi^T * f -> (b, psi_i_c, t/s1, h/s2, w/s3)
-        sigm_psi_f = F.sigmoid(self.psi(f))
+        sigm_psi_f = torch.sigmoid(self.psi(f))
 
         # upsample the attentions and multiply
-        sigm_psi_f = F.upsample(sigm_psi_f, size=input_size[2:], mode=self.upsample_mode)
+        sigm_psi_f = F.interpolate(sigm_psi_f, size=input_size[2:], mode=self.upsample_mode)
         y = sigm_psi_f.expand_as(x) * x
         W_y = self.W(y)
 
@@ -242,14 +177,14 @@ class _GridAttentionBlockND(nn.Module):
 
         # g (b, c, t', h', w') -> phi_g (b, i_c, t', h', w')
         #  Relu(theta_x + phi_g + bias) -> f = (b, i_c, thw) -> (b, i_c, t/s1, h/s2, w/s3)
-        phi_g = F.upsample(self.phi(g), size=theta_x_size[2:], mode=self.upsample_mode)
+        phi_g = F.interpolate(self.phi(g), size=theta_x_size[2:], mode=self.upsample_mode)
         f = F.softplus(theta_x + phi_g)
 
         #  psi^T * f -> (b, psi_i_c, t/s1, h/s2, w/s3)
-        sigm_psi_f = F.sigmoid(self.psi(f))
+        sigm_psi_f = torch.sigmoid(self.psi(f))
 
         # upsample the attentions and multiply
-        sigm_psi_f = F.upsample(sigm_psi_f, size=input_size[2:], mode=self.upsample_mode)
+        sigm_psi_f = F.interpolate(sigm_psi_f, size=input_size[2:], mode=self.upsample_mode)
         y = sigm_psi_f.expand_as(x) * x
         W_y = self.W(y)
 
@@ -268,7 +203,7 @@ class _GridAttentionBlockND(nn.Module):
 
         # g (b, c, t', h', w') -> phi_g (b, i_c, t', h', w')
         #  Relu(theta_x + phi_g + bias) -> f = (b, i_c, thw) -> (b, i_c, t/s1, h/s2, w/s3)
-        phi_g = F.upsample(self.phi(g), size=theta_x_size[2:], mode=self.upsample_mode)
+        phi_g = F.interpolate(self.phi(g), size=theta_x_size[2:], mode=self.upsample_mode)
         f = F.relu(theta_x + phi_g, inplace=True)
 
         #  psi^T * f -> (b, psi_i_c, t/s1, h/s2, w/s3)
@@ -276,7 +211,7 @@ class _GridAttentionBlockND(nn.Module):
         sigm_psi_f = F.softmax(f, dim=2).view(batch_size, 1, *theta_x.size()[2:])
 
         # upsample the attentions and multiply
-        sigm_psi_f = F.upsample(sigm_psi_f, size=input_size[2:], mode=self.upsample_mode)
+        sigm_psi_f = F.interpolate(sigm_psi_f, size=input_size[2:], mode=self.upsample_mode)
         y = sigm_psi_f.expand_as(x) * x
         W_y = self.W(y)
 
