@@ -40,11 +40,8 @@ class nnUNetTrainerV2_majority_data_loader(nnUNetTrainerV2):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
         self.max_num_epochs = 500 # changed from 1000
-        self.gpu_id_to_use = 1
-        self.threshold = 1
+        self.threshold = 1.0
         self.gt_niftis_folder_major = self.gt_niftis_folder + '_major'
-
-
 
     def initialize(self, training=True, force_load_plans=False):
         """
