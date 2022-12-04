@@ -4,7 +4,7 @@ several datasets and tips on how to identify bottlenecks](documentation/expected
 
 Please read these documents before opening a new issue!
 
-My name is Sophie.
+My name is Sophie and Brian.
 
 # nnU-Net
 
