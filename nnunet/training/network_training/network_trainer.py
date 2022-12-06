@@ -128,6 +128,8 @@ class NetworkTrainer(object):
         self.save_best_checkpoint = True  # whether or not to save the best checkpoint according to self.best_val_eval_criterion_MA
         self.save_final_checkpoint = True  # whether or not to save the final checkpoint
 
+        self.cloud = True
+
     @abstractmethod
     def initialize(self, training=True):
         """
