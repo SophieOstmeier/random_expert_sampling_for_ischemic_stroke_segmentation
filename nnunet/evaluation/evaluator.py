@@ -226,12 +226,7 @@ class Evaluator:
         if isinstance(self.threshold, float):
             eval_metrics += self.default_detection
 
-        #self.labels = dict(filter(lambda x: x[0] > 0.5, self.labels.items()))
         if isinstance(self.labels, dict):
-            #
-            #print('Hello from the child process', flush=True)
-            #print(self.labels, flush=True)
-            #sys.stdout.flush()
 
             for label, name in self.labels.items():
                 if label == 0:
