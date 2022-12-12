@@ -23,7 +23,6 @@ from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.training.network_training.nnUNetTrainerCascadeFullRes import nnUNetTrainerCascadeFullRes
 from nnunet.training.network_training.nnUNetTrainerV2_CascadeFullRes import nnUNetTrainerV2CascadeFullRes
 from nnunet.utilities.task_name_id_conversion import convert_id_to_task_name
-from knockknock import email_sender
 
 
 def main():
@@ -194,9 +193,6 @@ def main():
         if network == '3d_lowres' and not args.disable_next_stage_pred:
             print("predicting segmentations for the next stage of the cascade")
             predict_next_stage(trainer, join(dataset_directory, trainer.plans['data_identifier'] + "_stage%d" % 1))
-
-        @email_sender(recipient_emails=["ostmeiersophie@gmail.com"], sender_email="ostmeiersophie@gmail.com")
-
 
 if __name__ == "__main__":
     main()
