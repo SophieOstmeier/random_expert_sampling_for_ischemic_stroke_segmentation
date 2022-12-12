@@ -23,6 +23,7 @@ from nnunet.training.network_training.nnUNetTrainer import nnUNetTrainer
 from nnunet.training.network_training.nnUNetTrainerCascadeFullRes import nnUNetTrainerCascadeFullRes
 from nnunet.training.network_training.nnUNetTrainerV2_CascadeFullRes import nnUNetTrainerV2CascadeFullRes
 from nnunet.utilities.task_name_id_conversion import convert_id_to_task_name
+from nnunet.adaptable_platform.utilities import maybe_send_email_notification
 
 
 def main():
@@ -183,6 +184,8 @@ def main():
             else:
                 trainer.load_final_checkpoint(train=False)
 
+        maybe_send_email_notification("Training is for %s %s %s done" % (str(task), network_trainer, str(fold)))
+
         trainer.network.eval()
 
         # predict validation
@@ -193,6 +196,9 @@ def main():
         if network == '3d_lowres' and not args.disable_next_stage_pred:
             print("predicting segmentations for the next stage of the cascade")
             predict_next_stage(trainer, join(dataset_directory, trainer.plans['data_identifier'] + "_stage%d" % 1))
+
+        maybe_send_email_notification("Validation is for %s %s %s done" % (str(task), network_trainer, str(fold)))
+
 
 if __name__ == "__main__":
     main()
