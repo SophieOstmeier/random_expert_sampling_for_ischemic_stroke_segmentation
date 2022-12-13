@@ -45,15 +45,14 @@ class nnUNetTrainerV2(nnUNetTrainer):
                  unpack_data=True, deterministic=True, fp16=False):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
-        self.max_num_epochs = 500
+        self.max_num_epochs = 3
         self.initial_lr = 1e-2
         self.deep_supervision_scales = None
         self.ds_loss_weights = None
-        self.threshold = int(1)
+        self.threshold = float(1)
         self.gpu_id_to_use = self.get_free_gpu()
-        self.smooth = 1e-5
+        self.smooth = 1
         self.oversample_foreground_percent = 0.33
-
         self.pin_memory = True
 
     def get_free_gpu(self):
