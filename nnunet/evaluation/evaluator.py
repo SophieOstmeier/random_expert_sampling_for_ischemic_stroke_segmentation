@@ -16,7 +16,7 @@
 
 from collections import OrderedDict
 from sklearn.metrics import roc_auc_score
-from metrics import ConfusionMatrix, ALL_METRICS
+from nnunet.evaluation.metrics import ConfusionMatrix, ALL_METRICS
 import collections
 import itertools
 import inspect

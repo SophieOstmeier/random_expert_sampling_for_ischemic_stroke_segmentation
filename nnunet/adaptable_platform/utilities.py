@@ -1,4 +1,4 @@
-from config import *
+from nnunet.adaptable_platform.config import *
 
 import smtplib
 
