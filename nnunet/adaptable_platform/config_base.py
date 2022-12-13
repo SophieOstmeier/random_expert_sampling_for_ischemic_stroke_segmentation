@@ -16,7 +16,6 @@ class config_base:
 if __name__ != "__main__":
     pass
 
-cb = config_base()
-
-print("Test", cb.send_email)
+    cb = config_base()
+    print("Test", cb.send_email)
 
