@@ -17,6 +17,6 @@ def maybe_send_email_notification(message = "default training notification email
 if __name__ != "__main__":
     pass
 
-print("Testing Email notification")
-send_email_notification("email notification test")
-print("mail sent")
+    print("Testing Email notification")
+    send_email_notification("email notification test")
+    print("mail sent")
