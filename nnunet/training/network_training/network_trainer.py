@@ -98,7 +98,7 @@ class NetworkTrainer(object):
         self.train_loss_MA_eps = 5e-4  # new MA must be at least this much better (smaller)
         self.max_num_epochs = 1000
         self.num_batches_per_epoch = 250
-        self.num_val_batches_per_epoch = 50
+        self.num_val_batches_per_epoch = 0
         self.also_val_in_tr_mode = False
         self.lr_threshold = 1e-6  # the network will not terminate training if the lr is still above this threshold
 
@@ -639,6 +639,8 @@ class NetworkTrainer(object):
                                  self.all_tr_losses[-1]
 
     def run_iteration(self, data_generator, do_backprop=True, run_online_evaluation=False):
+        # don't run online evaluation since it's so slow.
+        # run_online_evaluation = False
         data_dict = next(data_generator)
         data = data_dict['data']
         target = data_dict['target']

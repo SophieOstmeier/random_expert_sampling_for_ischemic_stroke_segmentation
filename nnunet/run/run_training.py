@@ -24,7 +24,8 @@ from nnunet.training.network_training.nnUNetTrainerCascadeFullRes import nnUNetT
 from nnunet.training.network_training.nnUNetTrainerV2_CascadeFullRes import nnUNetTrainerV2CascadeFullRes
 from nnunet.utilities.task_name_id_conversion import convert_id_to_task_name
 from nnunet.adaptable_platform.utilities import maybe_send_email_notification
-
+import time
+import sys
 
 def main():
     parser = argparse.ArgumentParser()
@@ -189,10 +190,10 @@ def main():
 
         maybe_send_email_notification("Training is for %s %s %s done" % (str(task), network_trainer, str(fold)))
 
+        trainer.network.eval()
+
         # for cloud training
         if not validation_no:
-
-            trainer.network.eval()
 
             # predict validation
             trainer.validate(save_softmax=args.npz, validation_folder_name=val_folder,
@@ -205,6 +206,8 @@ def main():
 
             maybe_send_email_notification("Validation is for %s %s %s done" % (str(task), network_trainer, str(fold)))
 
+        else:
+            print("Done with training, skipped evaluation. Use training command with -val for evaluate")
 
 if __name__ == "__main__":
     main()
