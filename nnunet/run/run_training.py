@@ -32,6 +32,8 @@ def main():
     parser.add_argument("network_trainer")
     parser.add_argument("task", help="can be task name or task id")
     parser.add_argument("fold", help='0, 1, ..., 5 or \'all\'')
+    parser.add_argument("-val_no", "--validation_no", help="use this if you want to !not! run the validation",
+                        action="store_true")
     parser.add_argument("-val", "--validation_only", help="use this if you want to only run the validation",
                         action="store_true")
     parser.add_argument("-c", "--continue_training", help="use this if you want to continue a training",
@@ -98,6 +100,7 @@ def main():
     network = args.network
     network_trainer = args.network_trainer
     validation_only = args.validation_only
+    validation_no = args.validation_no
     plans_identifier = args.p
     find_lr = args.find_lr
     disable_postprocessing_on_folds = args.disable_postprocessing_on_folds
@@ -186,18 +189,21 @@ def main():
 
         maybe_send_email_notification("Training is for %s %s %s done" % (str(task), network_trainer, str(fold)))
 
-        trainer.network.eval()
+        # for cloud training
+        if not validation_no:
 
-        # predict validation
-        trainer.validate(save_softmax=args.npz, validation_folder_name=val_folder,
+            trainer.network.eval()
+
+            # predict validation
+            trainer.validate(save_softmax=args.npz, validation_folder_name=val_folder,
                          run_postprocessing_on_folds=not disable_postprocessing_on_folds,
                          overwrite=args.val_disable_overwrite)
 
-        if network == '3d_lowres' and not args.disable_next_stage_pred:
-            print("predicting segmentations for the next stage of the cascade")
-            predict_next_stage(trainer, join(dataset_directory, trainer.plans['data_identifier'] + "_stage%d" % 1))
+            if network == '3d_lowres' and not args.disable_next_stage_pred:
+                print("predicting segmentations for the next stage of the cascade")
+                predict_next_stage(trainer, join(dataset_directory, trainer.plans['data_identifier'] + "_stage%d" % 1))
 
-        maybe_send_email_notification("Validation is for %s %s %s done" % (str(task), network_trainer, str(fold)))
+            maybe_send_email_notification("Validation is for %s %s %s done" % (str(task), network_trainer, str(fold)))
 
 
 if __name__ == "__main__":

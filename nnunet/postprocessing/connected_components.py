@@ -236,8 +236,8 @@ def determine_postprocessing(base, gt_labels_folder, threshold, raw_subfolder_na
     validation_result_PP_test = load_json(join(folder_all_classes_as_fg, "summary.json"))['results']['median']
 
     for c in classes:
-        dc_raw = validation_result_raw[str(c)]['Surface Dice at Tolerance 5mm']
-        dc_pp = validation_result_PP_test[str(c)]['Surface Dice at Tolerance 5mm']
+        dc_raw = validation_result_raw[str(c)]['Dice']
+        dc_pp = validation_result_PP_test[str(c)]['Dice']
         pp_results['dc_per_class_raw'][str(c)] = dc_raw
         pp_results['dc_per_class_pp_all'][str(c)] = dc_pp
 
@@ -518,8 +518,8 @@ def determine_postprocessing_3rater_major(base, gt_labels_folder, gt_labels_fold
     validation_result_PP_test = load_json(join(folder_all_classes_as_fg, "summary.json"))['results']['median']
 
     for c in classes:
-        dc_raw = validation_result_raw[str(c)]['Surface Dice at Tolerance 5mm']
-        dc_pp = validation_result_PP_test[str(c)]['Surface Dice at Tolerance 5mm']
+        dc_raw = validation_result_raw[str(c)]['Dice']
+        dc_pp = validation_result_PP_test[str(c)]['Dice']
         pp_results['dc_per_class_raw'][str(c)] = dc_raw
         pp_results['dc_per_class_pp_all'][str(c)] = dc_pp
 
@@ -619,8 +619,8 @@ def determine_postprocessing_3rater_major(base, gt_labels_folder, gt_labels_fold
         validation_result_PP_test = load_json(join(folder_per_class, "summary.json"))['results']['median']
 
         for c in classes:
-            dc_raw = old_res[str(c)]['Surface Dice at Tolerance 5mm']
-            dc_pp = validation_result_PP_test[str(c)]['Surface Dice at Tolerance 5mm']
+            dc_raw = old_res[str(c)]['Dice']
+            dc_pp = validation_result_PP_test[str(c)]['Dice']
             pp_results['dc_per_class_pp_per_class'][str(c)] = dc_pp
             print(c)
             print("before:", dc_raw)
@@ -820,8 +820,8 @@ def determine_postprocessing_3rater_random(base, gt_labels_folder, gt_labels_fol
     validation_result_PP_test = load_json(join(folder_all_classes_as_fg, "summary.json"))['results']['median']
 
     for c in classes:
-        dc_raw = validation_result_raw[str(c)]['Surface Dice at Tolerance 5mm']
-        dc_pp = validation_result_PP_test[str(c)]['Surface Dice at Tolerance 5mm']
+        dc_raw = validation_result_raw[str(c)]['Dice']
+        dc_pp = validation_result_PP_test[str(c)]['Dice']
         pp_results['dc_per_class_raw'][str(c)] = dc_raw
         pp_results['dc_per_class_pp_all'][str(c)] = dc_pp
 
@@ -920,8 +920,8 @@ def determine_postprocessing_3rater_random(base, gt_labels_folder, gt_labels_fol
         validation_result_PP_test = load_json(join(folder_per_class, "summary.json"))['results']['median']
 
         for c in classes:
-            dc_raw = old_res[str(c)]['Surface Dice at Tolerance 5mm']
-            dc_pp = validation_result_PP_test[str(c)]['Surface Dice at Tolerance 5mm']
+            dc_raw = old_res[str(c)]['Dice']
+            dc_pp = validation_result_PP_test[str(c)]['Dice']
             pp_results['dc_per_class_pp_per_class'][str(c)] = dc_pp
             print(c)
             print("before:", dc_raw)
