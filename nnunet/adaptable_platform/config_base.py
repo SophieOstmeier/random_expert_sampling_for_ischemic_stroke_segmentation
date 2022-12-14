@@ -13,7 +13,7 @@ class config_base:
         self.threshold_do_not_use = None
 
 
-if __name__ != "__main__":
+if __name__ == "__main__":
     pass
 
     cb = config_base()
