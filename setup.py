@@ -28,6 +28,9 @@ setup(name='nnunet',
             "flatten_dict",
             "ctg-surface-distance",
             "pynvml",
+            "statsmodels",
+            "natsort",
+            "hiddenlayer",
       ],
       entry_points={
           'console_scripts': [

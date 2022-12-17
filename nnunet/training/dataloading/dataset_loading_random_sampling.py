@@ -84,7 +84,7 @@ def pack_dataset(folder, threads=default_num_threads, key="data"):
 
 def delete_npy(folder):
     case_identifiers = get_case_identifiers(folder)
-    npy_files = [join(folder, i + ".npy") for i in case_identifiers]
+    npy_files = [join(folder, i + ".npz") for i in case_identifiers]
     npy_files = [i for i in npy_files if isfile(i)]
     for n in npy_files:
         os.remove(n)
