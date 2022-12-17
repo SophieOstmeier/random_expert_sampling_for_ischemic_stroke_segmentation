@@ -28,6 +28,7 @@ setup(name='nnunet',
             "flatten_dict",
             "ctg-surface-distance",
             "pynvml",
+            "statsmodels",
       ],
       entry_points={
           'console_scripts': [
