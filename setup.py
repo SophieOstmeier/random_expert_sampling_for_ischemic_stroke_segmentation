@@ -30,6 +30,7 @@ setup(name='nnunet',
             "pynvml",
             "statsmodels",
             "natsort",
+            "hiddenlayer",
       ],
       entry_points={
           'console_scripts': [
