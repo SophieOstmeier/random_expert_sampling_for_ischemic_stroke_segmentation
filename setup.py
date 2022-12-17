@@ -29,6 +29,7 @@ setup(name='nnunet',
             "ctg-surface-distance",
             "pynvml",
             "statsmodels",
+            "natsort",
       ],
       entry_points={
           'console_scripts': [
