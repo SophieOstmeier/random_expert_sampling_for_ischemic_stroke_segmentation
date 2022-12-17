@@ -24,6 +24,10 @@ setup(name='nnunet',
             "nibabel", 
             "tifffile", 
             "matplotlib",
+            "google-cloud-storage",
+            "flatten_dict",
+            "ctg-surface-distance",
+            "pynvml",
       ],
       entry_points={
           'console_scripts': [
