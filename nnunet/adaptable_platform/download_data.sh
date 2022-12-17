@@ -1,7 +1,16 @@
 #!/bin/bash
 
-#gcloud storage cp gs://task127_experts_227_train_abdel/* $nnUNet_preprocessed/Task127_experts_227/nnUNetData_plans_v2.1_stage0_Abdel*
+abdel_folder=$nnUNet_preprocessed/Task127_experts_227/nnUNetData_plans_v2.1_stage0_Abdel/
+mkdir -p $abdel_folder
+gcloud storage cp gs://task127_experts_227_train_abdel/* $abdel_folder
 
-#gcloud storage cp gs://task127_experts_227_train_ben/* $nnUNet_preprocessed/Task127_experts_227/nnUNetData_plans_v2.1_stage0_Ben*
+ben_folder=$nnUNet_preprocessed/Task127_experts_227/nnUNetData_plans_v2.1_stage0_Ben/
+mkdir -p $ben_folder
+gcloud storage cp gs://task127_experts_227_train_ben/* $ben_folder
 
-#gcloud storage cp gs://task127_experts_227_train_jeremy/* $nnUNet_preprocessed/Task127_experts_227/nnUNetData_plans_v2.1_stage0_Jeremy*
+jeremy_folder=$nnUNet_preprocessed/Task127_experts_227/nnUNetData_plans_v2.1_stage0_Jeremy/
+mkdir -p $jeremy_folder
+gcloud storage cp gs://task127_experts_227_train_jeremy/* $jeremy_folder
+
+plan_folder=$nnUNet_preprocessed/Task127_experts_227/
+gcloud storage cp gs://task127_experts_227/* $plan_folder
