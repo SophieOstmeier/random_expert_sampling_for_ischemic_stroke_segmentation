@@ -52,7 +52,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
         self.threshold = float(1)
         self.gpu_id_to_use = self.get_free_gpu()
         self.smooth = 1
-        self.oversample_foreground_percent = 0.33
+        self.oversample_foreground_percent = 0.50
         self.pin_memory = True
 
     def get_free_gpu(self):
