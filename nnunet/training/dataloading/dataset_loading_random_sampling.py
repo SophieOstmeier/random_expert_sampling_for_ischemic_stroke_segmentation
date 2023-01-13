@@ -96,17 +96,21 @@ def load_dataset_random(folder, num_cases_properties_loading_threshold=1000):
     case_identifiers = get_case_identifiers(folder)
     case_identifiers.sort()
     dataset = OrderedDict()
-    random_seg_list = ['gt_segmentations_Abdel', 'gt_segmentations_Ben', 'gt_segmentations_Jeremy']
+    random_seg_list = []
+    plans_seg_list = []
+    for i in os.listdir(folder):
+        if i.startswith("gt_segmentation"):
+            random_seg_list.append(i)
+        if i.startswith("nnUNetData_plans_v2.1_stage0"):
+            plans_seg_list.append(i)
+
     print(f'choosing segmentations from {random_seg_list}')
+
     for c in case_identifiers:
         dataset[c] = OrderedDict()
-        Abdel = join(folder.rsplit('/',1)[0], 'nnUNetData_plans_v2.1_stage0_Abdel')
-        Ben = join(folder.rsplit('/', 1)[0], 'nnUNetData_plans_v2.1_stage0_Ben')
-        Jeremy = join(folder.rsplit('/', 1)[0], 'nnUNetData_plans_v2.1_stage0_Jeremy')
-        dataset[c]['data_file_Abdel'] = join(Abdel, "%s.npz" % c)
-        dataset[c]['data_file_Ben'] = join(Ben, "%s.npz" % c)
-        dataset[c]['data_file_Jeremy'] = join(Jeremy, "%s.npz" % c)
-        # dataset[c]['seg_file'] = join(random_seg, "%s.nii.gz" % c)
+        for i in range(len(plans_seg_list)):
+            expert_plans = join(folder.rsplit('/',1)[0], plans_seg_list[i])
+            dataset[c][f'data_file_{i+1}'] = join(expert_plans, "%s.npz" % c)
 
         # dataset[c]['properties'] = load_pickle(join(folder, "%s.pkl" % c))
         dataset[c]['properties_file'] = join(folder, "%s.pkl" % c)
@@ -173,10 +177,10 @@ class DataLoader3D_random(SlimDataLoaderBase):
         num_seg = 1
 
         k = list(self._data.keys())[0]
-        if isfile(self._data[k]['data_file_Ben'][:-4] + ".npy"):
-            case_all_data = np.load(self._data[k]['data_file_Ben'][:-4] + ".npy", self.memmap_mode)
+        if isfile(self._data[k]['data_file_1'][:-4] + ".npy"):
+            case_all_data = np.load(self._data[k]['data_file_1'][:-4] + ".npy", self.memmap_mode)
         else:
-            case_all_data = np.load(self._data[k]['data_file_Ben'])['data']
+            case_all_data = np.load(self._data[k]['data_file_1'])['data']
         num_color_channels = case_all_data.shape[0] - 1
         data_shape = (self.batch_size, num_color_channels, *self.patch_size)
         seg_shape = (self.batch_size, num_seg, *self.patch_size)
@@ -195,7 +199,16 @@ class DataLoader3D_random(SlimDataLoaderBase):
 
         data = np.zeros(self.data_shape, dtype=np.float32)
         seg = np.zeros(self.seg_shape, dtype=np.float32)
-        random_seg_list = ['data_file_Abdel', 'data_file_Ben', 'data_file_Jeremy']
+
+        rater_number = 0
+        for i in self._data[1]:
+            if i.startswith("data_file_"):
+                rater_number += 1
+
+        random_seg_list = []
+        for i in range(rater_number):
+            random_seg_list.append(f'data_file_{i+1}')
+
         case_properties = []
         for j, i in enumerate(selected_keys):
             # oversampling foreground will improve stability of model training, especially if many patches are empty
