@@ -576,6 +576,7 @@ def check_input_folder_and_return_caseIDs(input_folder, expected_num_modalities)
 
     assert len(files) > 0, "input folder did not contain any images (expected to find .nii.gz file endings)"
 
+    print("expected_num_modalities is ", expected_num_modalities)
     # now check if all required files are present and that no unexpected files are remaining
     for c in maybe_case_ids:
         for n in range(expected_num_modalities):
@@ -631,7 +632,8 @@ def predict_from_folder(model: str, input_folder: str, output_folder: str, folds
 
     assert isfile(join(model, "plans.pkl")), "Folder with saved model weights must contain a plans.pkl file"
     expected_num_modalities = load_pickle(join(model, "plans.pkl"))['num_modalities']
-
+    # for debug, changed
+    expected_num_modalities = 1
     # check input folder integrity
     case_ids = check_input_folder_and_return_caseIDs(input_folder, expected_num_modalities)
 
