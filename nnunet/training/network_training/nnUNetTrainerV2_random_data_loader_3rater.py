@@ -11,6 +11,8 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+import sys
+
 from nnunet.training.dataloading.dataset_loading_random_sampling import unpack_dataset,load_dataset_random, DataLoader3D_random
 from nnunet.training.loss_functions.deep_supervision import MultipleOutputLoss2
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
@@ -83,18 +85,10 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
                 self.dl_tr, self.dl_val = self.get_basic_generators()
                 if self.unpack_data:
                     print("unpacking dataset")
-                    self.folder_with_preprocessed_data_Abdel = join(self.dataset_directory,
-                                                                    self.plans['data_identifier'] +
-                                                                    "_stage%d_Abdel" % self.stage)
-                    self.folder_with_preprocessed_data_Ben = join(self.dataset_directory,
-                                                                  self.plans['data_identifier'] +
-                                                                  "_stage%d_Ben" % self.stage)
-                    self.folder_with_preprocessed_data_Jeremy = join(self.dataset_directory,
-                                                                     self.plans['data_identifier'] +
-                                                                     "_stage%d_Jeremy" % self.stage)
-                    unpack_dataset(self.folder_with_preprocessed_data_Abdel)
-                    unpack_dataset(self.folder_with_preprocessed_data_Ben)
-                    unpack_dataset(self.folder_with_preprocessed_data_Jeremy)
+                    for i in self.dataset_directory.startswith(self.plans['data_identifier'] + "_stage%d_%d" % self.stage):
+                        print(i)
+                        sys.exit()
+                        unpack_dataset(i)
                     print("done")
                 else:
                     print(
