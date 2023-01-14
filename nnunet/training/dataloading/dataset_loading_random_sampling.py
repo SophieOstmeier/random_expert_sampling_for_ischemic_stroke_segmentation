@@ -11,7 +11,9 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
+import glob
+import sys
+from natsort import natsorted
 from collections import OrderedDict
 
 import SimpleITK
@@ -96,20 +98,18 @@ def load_dataset_random(folder, num_cases_properties_loading_threshold=1000):
     case_identifiers = get_case_identifiers(folder)
     case_identifiers.sort()
     dataset = OrderedDict()
-    random_seg_list = []
-    plans_seg_list = []
-    for i in os.listdir(folder):
-        if i.startswith("gt_segmentation"):
-            random_seg_list.append(i)
-        if i.startswith("nnUNetData_plans_v2.1_stage0"):
-            plans_seg_list.append(i)
 
-    print(f'choosing segmentations from {random_seg_list}')
+    base_folder = folder.rsplit("/",1)[0]
+    random_seg_list = natsorted(glob.glob(base_folder + "/gt_segmentation*"))
+    plans_seg_list = natsorted(glob.glob(base_folder + "/nnUNetData_plans_v2.1_stage0*"))
+
+    print(f'choosing segmentations from {[i.rsplit("/",1)[-1] for i in random_seg_list]}')
 
     for c in case_identifiers:
         dataset[c] = OrderedDict()
         for i in range(len(plans_seg_list)):
             expert_plans = join(folder.rsplit('/',1)[0], plans_seg_list[i])
+
             dataset[c][f'data_file_{i+1}'] = join(expert_plans, "%s.npz" % c)
 
         # dataset[c]['properties'] = load_pickle(join(folder, "%s.pkl" % c))

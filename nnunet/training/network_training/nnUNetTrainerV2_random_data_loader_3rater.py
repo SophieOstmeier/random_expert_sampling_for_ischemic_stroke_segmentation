@@ -20,6 +20,7 @@ from nnunet.training.data_augmentation.data_augmentation_moreDA import get_moreD
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
 from torch import nn
+import glob
 from nnunet.configuration import default_num_threads
 from nnunet.evaluation.evaluator import aggregate_scores
 from nnunet.inference.segmentation_export import save_segmentation_nifti_from_softmax
@@ -79,15 +80,13 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
             ################# END ###################
 
             self.folder_with_preprocessed_data = join(self.dataset_directory, self.plans['data_identifier'] +
-                                                      "_stage%d_Ben" % self.stage)
+                                                      "_stage%d_1" % self.stage)
 
             if training:
                 self.dl_tr, self.dl_val = self.get_basic_generators()
                 if self.unpack_data:
                     print("unpacking dataset")
-                    for i in self.dataset_directory.startswith(self.plans['data_identifier'] + "_stage%d_%d" % self.stage):
-                        print(i)
-                        sys.exit()
+                    for i in glob.glob(self.dataset_directory + "/" + self.plans['data_identifier'] + "_stage%d_*" % self.stage):
                         unpack_dataset(i)
                     print("done")
                 else:
