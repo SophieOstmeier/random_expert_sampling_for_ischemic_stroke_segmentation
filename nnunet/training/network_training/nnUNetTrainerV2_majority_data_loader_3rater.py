@@ -32,6 +32,7 @@ import torch
 
 from os.path import exists
 import sys
+import glob
 
 
 class nnUNetTrainerV2_majority_data_loader_3rater(nnUNetTrainerV2):
@@ -39,9 +40,8 @@ class nnUNetTrainerV2_majority_data_loader_3rater(nnUNetTrainerV2):
                  unpack_data=True, deterministic=True, fp16=False):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
-        self.max_num_epochs = 500 # changed from 1000
-        self.gpu_id_to_use = 1
-        self.threshold = 1.0
+        self.max_num_epochs = 10 # changed from 1000
+        self.threshold = None
         self.gt_niftis_folder_major = self.gt_niftis_folder + 'reference_majority'
 
 
@@ -84,24 +84,13 @@ class nnUNetTrainerV2_majority_data_loader_3rater(nnUNetTrainerV2):
             ################# END ###################
 
             self.folder_with_preprocessed_data = join(self.dataset_directory, self.plans['data_identifier'] +
-                                                      "_stage%d_Ben" % self.stage)
+                                                      "_stage%d_1" % self.stage)
 
             if training:
                 self.dl_tr, self.dl_val = self.get_basic_generators()
                 if self.unpack_data:
-                    print("unpacking dataset")
-                    self.folder_with_preprocessed_data_Abdel = join(self.dataset_directory,
-                                                                    self.plans['data_identifier'] +
-                                                                    "_stage%d_Abdel" % self.stage)
-                    self.folder_with_preprocessed_data_Ben = join(self.dataset_directory,
-                                                                  self.plans['data_identifier'] +
-                                                                  "_stage%d_Ben" % self.stage)
-                    self.folder_with_preprocessed_data_Jeremy = join(self.dataset_directory,
-                                                                     self.plans['data_identifier'] +
-                                                                     "_stage%d_Jeremy" % self.stage)
-                    unpack_dataset(self.folder_with_preprocessed_data_Abdel)
-                    unpack_dataset(self.folder_with_preprocessed_data_Ben)
-                    unpack_dataset(self.folder_with_preprocessed_data_Jeremy)
+                    for i in glob.glob(self.dataset_directory + "/" + self.plans['data_identifier'] + "_stage%d_*" % self.stage):
+                        unpack_dataset(i)
                     print("done")
                 else:
                     print(
@@ -223,7 +212,9 @@ class nnUNetTrainerV2_majority_data_loader_3rater(nnUNetTrainerV2):
                 if not exists(join(output_folder, fname + ".nii.gz")):
 
                     data_list_pred = []
-                    major_seg_list = ['data_file_Abdel', 'data_file_Ben', 'data_file_Jeremy']
+
+                    major_seg_list = [i for i in self.dataset[k].keys() if i.startswith('data_file')]
+
                     for a in major_seg_list:
                         case_all_data_expert = np.load(self.dataset[k][a])['data']
                         data_list_pred.append(case_all_data_expert[1, :, :, :])
@@ -232,7 +223,7 @@ class nnUNetTrainerV2_majority_data_loader_3rater(nnUNetTrainerV2):
                     case_all_data_seg = case_all_data_sum.astype(np.float)
                     # stack majority vote segmentation to input image. It does not mater which one. All experts have the same input image
                     # We could exchange Abdel for any other experts
-                    data = np.stack((np.load(self.dataset[k]['data_file_Abdel'])['data'][0, :, :, :], case_all_data_seg), axis=0)
+                    data = np.stack((np.load(self.dataset[k]['data_file_1'])['data'][0, :, :, :], case_all_data_seg), axis=0)
 
                     data[-1][data[-1] == -1] = 0
 
@@ -276,9 +267,8 @@ class nnUNetTrainerV2_majority_data_loader_3rater(nnUNetTrainerV2):
             # save majority vote mask for validation if not already done so
 
             #if exists(join(self.gt_niftis_folder_major, fname + ".nii.gz")):
-            major_seg_gt_list = [self.gt_niftis_folder + '_Abdel',
-                                 self.gt_niftis_folder + '_Ben',
-                                 self.gt_niftis_folder + '_Jeremy']
+            major_seg_gt_list = [self.gt_niftis_folder + '_' + i for i in range(len(major_seg_list))]
+
             data_list = []
             if not exists(join(self.gt_niftis_folder_major, fname + ".nii.gz")):
                 for a in major_seg_gt_list:

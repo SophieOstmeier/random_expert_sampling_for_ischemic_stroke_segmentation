@@ -650,9 +650,10 @@ def determine_postprocessing_3rater_major(base, gt_labels_folder, gt_labels_fold
 
     # now that we have a proper for_which_classes, apply that
     pred_gt_tuples = []
-    pred_gt_tuples_Abdel = []
-    pred_gt_tuples_Ben = []
-    pred_gt_tuples_Jeremy = []
+
+    number_experts = len(glob.glob(gt_labels_folder.rsplit("/", 1)[0] + "/gt_segmentations_*"))
+    pred_gt_tuples_expert_list = {}
+
     results = []
     for f in fnames:
         predicted_segmentation = join(base, raw_subfolder_name, f)
@@ -666,9 +667,10 @@ def determine_postprocessing_3rater_major(base, gt_labels_folder, gt_labels_fold
         pred_gt_tuples.append([output_file,
                                join(gt_labels_folder_major, f)])
 
-        pred_gt_tuples_Abdel.append([output_file, join(gt_labels_folder + '_Abdel', f)])
-        pred_gt_tuples_Ben.append([output_file, join(gt_labels_folder + '_Ben', f)])
-        pred_gt_tuples_Jeremy.append([output_file, join(gt_labels_folder + '_Jeremy', f)])
+        for i in range(number_experts):
+            if i not in pred_gt_tuples_expert_list.keys():
+                pred_gt_tuples_expert_list[i] = []
+            pred_gt_tuples_expert_list[i].append([output_file, join(gt_labels_folder + f'_{i+1}', f)])
 
     _ = [i.get() for i in results]
     # evaluate postprocessed predictions
@@ -677,17 +679,10 @@ def determine_postprocessing_3rater_major(base, gt_labels_folder, gt_labels_fold
                          excel_output_file=join(base, final_subf_name, "summary.xlsx"),
                          json_author="Fabian", num_threads=processes)
 
-    _ = aggregate_scores(pred_gt_tuples_Abdel, threshold=threshold, labels=classes,
-                         json_output_file=join(base, final_subf_name, "summary_Abdel.json"),
-                         excel_output_file=join(base, final_subf_name, "summary_Abdel.xlsx"),
-                         json_author="Fabian", num_threads=processes)
-    _ = aggregate_scores(pred_gt_tuples_Ben, threshold=threshold, labels=classes,
-                         json_output_file=join(base, final_subf_name, "summary_Ben.json"),
-                         excel_output_file=join(base, final_subf_name, "summary_Ben.xlsx"),
-                         json_author="Fabian", num_threads=processes)
-    _ = aggregate_scores(pred_gt_tuples_Jeremy, threshold=threshold, labels=classes,
-                         json_output_file=join(base, final_subf_name, "summary_Jeremy.json"),
-                         excel_output_file=join(base, final_subf_name, "summary_Jeremy.xlsx"),
+    for i in range(number_experts):
+        _ = aggregate_scores(pred_gt_tuples_expert_list[i], threshold=threshold, labels=classes,
+                         json_output_file=join(base, final_subf_name, f"summary_{i+1}.json"),
+                         excel_output_file=join(base, final_subf_name, f"summary_{i+1}.xlsx"),
                          json_author="Fabian", num_threads=processes)
 
     pp_results['min_valid_object_sizes'] = str(pp_results['min_valid_object_sizes'])
@@ -982,7 +977,6 @@ def determine_postprocessing_3rater_random(base, gt_labels_folder, gt_labels_fol
                          json_author="Fabian", num_threads=processes)
 
     for i in range(number_experts):
-        k = pred_gt_tuples_expert_list[i]
         _ = aggregate_scores(pred_gt_tuples_expert_list[i], threshold=threshold, labels=classes,
                          json_output_file=join(base, final_subf_name, f"summary_{i+1}.json"),
                          excel_output_file=join(base, final_subf_name, f"summary_{i+1}.xlsx"),
