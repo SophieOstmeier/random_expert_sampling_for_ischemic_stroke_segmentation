@@ -14,6 +14,7 @@
 
 
 import ast
+import glob
 from copy import deepcopy
 from multiprocessing.pool import Pool
 
@@ -951,10 +952,7 @@ def determine_postprocessing_3rater_random(base, gt_labels_folder, gt_labels_fol
     # now that we have a proper for_which_classes, apply that
     pred_gt_tuples = []
 
-    number_experts = 0
-    for i in os.listdir(gt_labels_folder.rsplit("/",1)[0]):
-        if i.startswith("gt_segmentation"):
-            number_experts += 1
+    number_experts = len(glob.glob(gt_labels_folder.rsplit("/",1)[0] + "/gt_segmentations_*"))
 
     pred_gt_tuples_expert_list = {}
 
@@ -972,7 +970,9 @@ def determine_postprocessing_3rater_random(base, gt_labels_folder, gt_labels_fol
                                join(gt_labels_folder_random, f)])
 
         for i in range(number_experts):
-            pred_gt_tuples_expert_list[i] = [output_file, join(gt_labels_folder + f'_{i+1}', f)]
+            if i not in pred_gt_tuples_expert_list.keys():
+                pred_gt_tuples_expert_list[i] = []
+            pred_gt_tuples_expert_list[i].append([output_file, join(gt_labels_folder + f'_{i+1}', f)])
 
     _ = [i.get() for i in results]
     # evaluate postprocessed predictions
@@ -982,6 +982,7 @@ def determine_postprocessing_3rater_random(base, gt_labels_folder, gt_labels_fol
                          json_author="Fabian", num_threads=processes)
 
     for i in range(number_experts):
+        k = pred_gt_tuples_expert_list[i]
         _ = aggregate_scores(pred_gt_tuples_expert_list[i], threshold=threshold, labels=classes,
                          json_output_file=join(base, final_subf_name, f"summary_{i+1}.json"),
                          excel_output_file=join(base, final_subf_name, f"summary_{i+1}.xlsx"),

@@ -200,14 +200,8 @@ class DataLoader3D_random(SlimDataLoaderBase):
         data = np.zeros(self.data_shape, dtype=np.float32)
         seg = np.zeros(self.seg_shape, dtype=np.float32)
 
-        rater_number = 0
-        for i in self._data[1]:
-            if i.startswith("data_file_"):
-                rater_number += 1
-
-        random_seg_list = []
-        for i in range(rater_number):
-            random_seg_list.append(f'data_file_{i+1}')
+        k = list(self._data.keys())[0]
+        random_seg_list = [i for i in self._data[k].keys() if i.startswith('data_file')]
 
         case_properties = []
         for j, i in enumerate(selected_keys):

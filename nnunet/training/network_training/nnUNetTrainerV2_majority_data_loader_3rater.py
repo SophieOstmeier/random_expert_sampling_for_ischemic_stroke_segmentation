@@ -42,7 +42,7 @@ class nnUNetTrainerV2_majority_data_loader_3rater(nnUNetTrainerV2):
         self.max_num_epochs = 500 # changed from 1000
         self.gpu_id_to_use = 1
         self.threshold = 1.0
-        self.gt_niftis_folder_major = self.gt_niftis_folder + '_major'
+        self.gt_niftis_folder_major = self.gt_niftis_folder + 'reference_majority'
 
 
 

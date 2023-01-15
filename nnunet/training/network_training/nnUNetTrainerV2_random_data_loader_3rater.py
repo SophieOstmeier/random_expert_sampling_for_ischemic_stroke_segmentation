@@ -38,9 +38,9 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
                  unpack_data=True, deterministic=True, fp16=False):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
-        self.max_num_epochs = 1300 # changed from 1000
-        self.threshold = 1
-        self.gt_niftis_folder_random = self.gt_niftis_folder + '_random'
+        self.max_num_epochs = 10 # changed from 1000
+        self.threshold = None
+        self.gt_niftis_folder_random = self.gt_niftis_folder + 'reference_random'
 
     def initialize(self, training=True, force_load_plans=False):
         """
@@ -204,7 +204,7 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
             properties = load_pickle(self.dataset[k]['properties_file'])
             fname = properties['list_of_data_files'][0].split("/")[-1][:-12]
 
-            random_seg_list = ['data_file_Abdel', 'data_file_Ben', 'data_file_Jeremy']
+            random_seg_list = [i for i in self.dataset[k].keys() if i.startswith('data_file')]
             random_seg = random.choice(random_seg_list)
 
             if overwrite or (not isfile(join(output_folder, fname + ".nii.gz"))) or \
