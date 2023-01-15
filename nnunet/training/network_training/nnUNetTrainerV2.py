@@ -347,7 +347,6 @@ class nnUNetTrainerV2(nnUNetTrainer):
         self.dataset_val = OrderedDict()
         for i in val_keys:
             self.dataset_val[i] = self.dataset[i]
-        print(self.dataset_val)
 
     def setup_DA_params(self):
         """

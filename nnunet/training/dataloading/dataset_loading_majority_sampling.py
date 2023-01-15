@@ -216,7 +216,7 @@ class DataLoader3D_major(SlimDataLoaderBase):
                 for a in major_seg_list:
                     case_all_data_expert = np.load(self._data[i][a][:-4] + ".npy", self.memmap_mode)
                     data_list.append(case_all_data_expert[1,:,:,:])
-                case_all_data_sum = sum(data_list) > 1.
+                case_all_data_sum = np.sum(data_list, axis= 0) > (len(major_seg_list)/2)
                 case_all_data_seg = case_all_data_sum.astype(np.float)
                 # stack majority vote segmentation to input image. It does not mater which one. All experts have the same input image
                 # We could exchange Abdel for any other experts
@@ -226,7 +226,7 @@ class DataLoader3D_major(SlimDataLoaderBase):
                 for a in major_seg_list:
                     case_all_data_expert = np.load(self._data[i][a])['data']
                     data_list.append(case_all_data_expert[1,:,:,:])
-                case_all_data_sum = sum(data_list) > 1.
+                case_all_data_sum = np.sum(data_list, axis= 0) > (len(major_seg_list)/2)
                 case_all_data_seg = case_all_data_sum.astype(np.float)
                 # stack majority vote segmentation to input image. It does not mater which one. All experts have the same input image
                 # We could exchange Abdel for any other experts
