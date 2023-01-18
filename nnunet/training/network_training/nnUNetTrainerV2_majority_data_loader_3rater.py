@@ -41,7 +41,7 @@ class nnUNetTrainerV2_majority_data_loader_3rater(nnUNetTrainerV2):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
         self.max_num_epochs = 700 # changed from 1000
-        self.threshold = None
+        self.threshold = 1
         self.gt_niftis_folder_major = self.gt_niftis_folder + '_major'
 
 
@@ -84,7 +84,7 @@ class nnUNetTrainerV2_majority_data_loader_3rater(nnUNetTrainerV2):
             ################# END ###################
 
             self.folder_with_preprocessed_data = join(self.dataset_directory, self.plans['data_identifier'] +
-                                                      "_stage%d_1" % self.stage)
+                                                      "_stage%d_rater1" % self.stage)
 
             if training:
                 self.dl_tr, self.dl_val = self.get_basic_generators()

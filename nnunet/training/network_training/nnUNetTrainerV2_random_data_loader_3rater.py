@@ -39,7 +39,7 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
         self.max_num_epochs = 1300 # changed from 1000
-        self.threshold = None
+        self.threshold = 1
         self.gt_niftis_folder_random = self.gt_niftis_folder + '_random'
 
     def initialize(self, training=True, force_load_plans=False):
