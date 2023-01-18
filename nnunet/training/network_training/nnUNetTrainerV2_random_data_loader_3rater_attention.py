@@ -11,7 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-from nnunet.training.dataloading.dataset_loading_random_sampling import unpack_dataset,load_dataset_random, DataLoader3D_random
+from nnunet.training.dataloading.dataset_loading_multirater_sampling import unpack_dataset,load_dataset_random, DataLoader3D_random
 from nnunet.training.loss_functions.deep_supervision import MultipleOutputLoss2
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 from nnunet.training.data_augmentation.data_augmentation_moreDA import get_moreDA_augmentation

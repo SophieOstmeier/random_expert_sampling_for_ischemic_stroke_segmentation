@@ -91,40 +91,6 @@ def delete_npy(folder):
     for n in npy_files:
         os.remove(n)
 
-
-def load_dataset_major(folder, num_cases_properties_loading_threshold=1000):
-    # we don't load the actual data but instead return the filename to the np file.
-    print('loading dataset')
-    case_identifiers = get_case_identifiers(folder)
-    case_identifiers.sort()
-    dataset = OrderedDict()
-
-    base_folder = folder.rsplit("/",1)[0]
-    random_seg_list = natsorted(glob.glob(base_folder + "/gt_segmentation_rater*"))
-    plans_seg_list = natsorted(glob.glob(base_folder + "/nnUNetData_plans_v2.1_stage0_rater*"))
-
-    print(f'choosing segmentations from {[i.rsplit("/",1)[-1] for i in random_seg_list]}')
-
-    for c in case_identifiers:
-        dataset[c] = OrderedDict()
-        for i in range(len(plans_seg_list)):
-            expert_plans = join(folder.rsplit('/',1)[0], plans_seg_list[i])
-
-            dataset[c][f'data_file_{i+1}'] = join(expert_plans, "%s.npz" % c)
-
-        # dataset[c]['properties'] = load_pickle(join(folder, "%s.pkl" % c))
-        dataset[c]['properties_file'] = join(folder, "%s.pkl" % c)
-
-        if dataset[c].get('seg_from_prev_stage_file') is not None:
-            dataset[c]['seg_from_prev_stage_file'] = join(folder, "%s_segs.npz" % c)
-
-    if len(case_identifiers) <= num_cases_properties_loading_threshold:
-        print('loading all case properties')
-        for i in dataset.keys():
-            dataset[i]['properties'] = load_pickle(dataset[i]['properties_file'])
-
-    return dataset
-
 class DataLoader3D_major(SlimDataLoaderBase):
     def __init__(self, data, patch_size, final_patch_size, batch_size, has_prev_stage=False,
                  oversample_foreground_percent=0.33, memmap_mode="r+", pad_mode="edge", pad_kwargs_data=None,
