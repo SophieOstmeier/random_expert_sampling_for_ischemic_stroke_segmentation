@@ -36,7 +36,7 @@ def get_default_configuration(network, task, network_trainer, plans_identifier=d
                               base_module='nnunet.training.network_training'):
     assert network in ['2d', '3d_lowres', '3d_fullres', '3d_cascade_fullres'], \
         "network can only be one of the following: \'2d\', \'3d_lowres\', \'3d_fullres\', \'3d_cascade_fullres\'"
-
+    print(preprocessing_output_dir)
     dataset_directory = join(preprocessing_output_dir, task)
 
     if network == '2d':

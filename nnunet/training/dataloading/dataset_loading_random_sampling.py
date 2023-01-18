@@ -100,8 +100,8 @@ def load_dataset_random(folder, num_cases_properties_loading_threshold=1000):
     dataset = OrderedDict()
 
     base_folder = folder.rsplit("/",1)[0]
-    random_seg_list = natsorted(glob.glob(base_folder + "/gt_segmentation*"))
-    plans_seg_list = natsorted(glob.glob(base_folder + "/nnUNetData_plans_v2.1_stage0*"))
+    random_seg_list = natsorted(glob.glob(base_folder + "/gt_segmentations_rater*"))
+    plans_seg_list = natsorted(glob.glob(base_folder + "/nnUNetData_plans_v2.1_stage0_rater*"))
 
     print(f'choosing segmentations from {[i.rsplit("/",1)[-1] for i in random_seg_list]}')
 
@@ -110,7 +110,7 @@ def load_dataset_random(folder, num_cases_properties_loading_threshold=1000):
         for i in range(len(plans_seg_list)):
             expert_plans = join(folder.rsplit('/',1)[0], plans_seg_list[i])
 
-            dataset[c][f'data_file_{i+1}'] = join(expert_plans, "%s.npz" % c)
+            dataset[c][f'data_file_rater{i+1}'] = join(expert_plans, "%s.npz" % c)
 
         # dataset[c]['properties'] = load_pickle(join(folder, "%s.pkl" % c))
         dataset[c]['properties_file'] = join(folder, "%s.pkl" % c)
@@ -177,10 +177,10 @@ class DataLoader3D_random(SlimDataLoaderBase):
         num_seg = 1
 
         k = list(self._data.keys())[0]
-        if isfile(self._data[k]['data_file_1'][:-4] + ".npy"):
-            case_all_data = np.load(self._data[k]['data_file_1'][:-4] + ".npy", self.memmap_mode)
+        if isfile(self._data[k]['data_file_rater1'][:-4] + ".npy"):
+            case_all_data = np.load(self._data[k]['data_file_rater1'][:-4] + ".npy", self.memmap_mode)
         else:
-            case_all_data = np.load(self._data[k]['data_file_1'])['data']
+            case_all_data = np.load(self._data[k]['data_file_rater1'])['data']
         num_color_channels = case_all_data.shape[0] - 1
         data_shape = (self.batch_size, num_color_channels, *self.patch_size)
         seg_shape = (self.batch_size, num_seg, *self.patch_size)

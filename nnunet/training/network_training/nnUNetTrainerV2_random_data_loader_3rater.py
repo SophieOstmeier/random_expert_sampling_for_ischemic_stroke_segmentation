@@ -25,7 +25,7 @@ from nnunet.configuration import default_num_threads
 from nnunet.evaluation.evaluator import aggregate_scores
 from nnunet.inference.segmentation_export import save_segmentation_nifti_from_softmax
 from nnunet.network_architecture.neural_network import SegmentationNetwork
-from nnunet.postprocessing.connected_components import determine_postprocessing_3rater_random
+from nnunet.postprocessing.connected_components import determine_postprocessing_3rater
 from multiprocessing import Pool
 from time import sleep
 import random
@@ -38,9 +38,9 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
                  unpack_data=True, deterministic=True, fp16=False):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
-        self.max_num_epochs = 10 # changed from 1000
+        self.max_num_epochs = 1300 # changed from 1000
         self.threshold = None
-        self.gt_niftis_folder_random = self.gt_niftis_folder + 'reference_random'
+        self.gt_niftis_folder_random = self.gt_niftis_folder + '_random'
 
     def initialize(self, training=True, force_load_plans=False):
         """
@@ -80,13 +80,13 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
             ################# END ###################
 
             self.folder_with_preprocessed_data = join(self.dataset_directory, self.plans['data_identifier'] +
-                                                      "_stage%d_1" % self.stage)
+                                                      "_stage%d_rater1" % self.stage)
 
             if training:
                 self.dl_tr, self.dl_val = self.get_basic_generators()
                 if self.unpack_data:
                     print("unpacking dataset")
-                    for i in glob.glob(self.dataset_directory + "/" + self.plans['data_identifier'] + "_stage%d_*" % self.stage):
+                    for i in glob.glob(self.dataset_directory + "/" + self.plans['data_identifier'] + "_stage%d_rater*" % self.stage):
                         unpack_dataset(i)
                     print("done")
                 else:
@@ -282,7 +282,7 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
             # classes and then rerun the evaluation. Those classes for which this resulted in an improved dice score will
             # have this applied during inference as well
             self.print_to_log_file("determining postprocessing")
-            determine_postprocessing_3rater_random(self.output_folder, self.gt_niftis_folder, self.gt_niftis_folder_random, self.threshold, validation_folder_name,
+            determine_postprocessing_3rater(self.output_folder, self.gt_niftis_folder, self.gt_niftis_folder_random, self.threshold, validation_folder_name,
                                      final_subf_name=validation_folder_name + "_postprocessed", debug=debug)
             # after this the final predictions for the vlaidation set can be found in validation_folder_name_base + "_postprocessed"
             # They are always in that folder, even if no postprocessing as applied!

@@ -100,8 +100,8 @@ def load_dataset_major(folder, num_cases_properties_loading_threshold=1000):
     dataset = OrderedDict()
 
     base_folder = folder.rsplit("/",1)[0]
-    random_seg_list = natsorted(glob.glob(base_folder + "/gt_segmentation*"))
-    plans_seg_list = natsorted(glob.glob(base_folder + "/nnUNetData_plans_v2.1_stage0*"))
+    random_seg_list = natsorted(glob.glob(base_folder + "/gt_segmentation_rater*"))
+    plans_seg_list = natsorted(glob.glob(base_folder + "/nnUNetData_plans_v2.1_stage0_rater*"))
 
     print(f'choosing segmentations from {[i.rsplit("/",1)[-1] for i in random_seg_list]}')
 
@@ -177,10 +177,10 @@ class DataLoader3D_major(SlimDataLoaderBase):
         num_seg = 1
 
         k = list(self._data.keys())[0]
-        if isfile(self._data[k]['data_file_1'][:-4] + ".npy"):
-            case_all_data = np.load(self._data[k]['data_file_1'][:-4] + ".npy", self.memmap_mode)
+        if isfile(self._data[k]['data_file_rater1'][:-4] + ".npy"):
+            case_all_data = np.load(self._data[k]['data_file_rater1'][:-4] + ".npy", self.memmap_mode)
         else:
-            case_all_data = np.load(self._data[k]['data_file_1'])['data']
+            case_all_data = np.load(self._data[k]['data_file_rater1'])['data']
         num_color_channels = case_all_data.shape[0] - 1
         data_shape = (self.batch_size, num_color_channels, *self.patch_size)
         seg_shape = (self.batch_size, num_seg, *self.patch_size)
@@ -212,7 +212,7 @@ class DataLoader3D_major(SlimDataLoaderBase):
             # cases are stored as npz, but we require unpack_dataset to be run. This will decompress them into npy
             # which is much faster to access
             data_list= []
-            if isfile(self._data[i]['data_file_1'][:-4] + ".npy"):
+            if isfile(self._data[i]['data_file_rater1'][:-4] + ".npy"):
                 for a in major_seg_list:
                     case_all_data_expert = np.load(self._data[i][a][:-4] + ".npy", self.memmap_mode)
                     data_list.append(case_all_data_expert[1,:,:,:])
@@ -220,7 +220,7 @@ class DataLoader3D_major(SlimDataLoaderBase):
                 case_all_data_seg = case_all_data_sum.astype(np.float)
                 # stack majority vote segmentation to input image. It does not mater which one. All experts have the same input image
                 # We could exchange Abdel for any other experts
-                case_all_data = np.stack((np.load(self._data[i]['data_file_1'][:-4] + ".npy", self.memmap_mode)[0,:,:,:], case_all_data_seg), axis=0)
+                case_all_data = np.stack((np.load(self._data[i]['data_file_rater1'][:-4] + ".npy", self.memmap_mode)[0,:,:,:], case_all_data_seg), axis=0)
 
             else:
                 for a in major_seg_list:
@@ -230,7 +230,7 @@ class DataLoader3D_major(SlimDataLoaderBase):
                 case_all_data_seg = case_all_data_sum.astype(np.float)
                 # stack majority vote segmentation to input image. It does not mater which one. All experts have the same input image
                 # We could exchange Abdel for any other experts
-                case_all_data = np.stack((np.load(self._data[i]['data_file_1'])['data'][0,:,:,:], case_all_data_seg), axis=0)
+                case_all_data = np.stack((np.load(self._data[i]['data_file_rater1'])['data'][0,:,:,:], case_all_data_seg), axis=0)
 
 
             # If we are doing the cascade then we will also need to load the segmentation of the previous stage and

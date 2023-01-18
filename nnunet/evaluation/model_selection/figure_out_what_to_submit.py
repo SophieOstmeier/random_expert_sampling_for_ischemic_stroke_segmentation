@@ -22,7 +22,7 @@ from nnunet.evaluation.model_selection.ensemble import ensemble
 from nnunet.paths import network_training_output_dir
 import numpy as np
 from subprocess import call
-from nnunet.postprocessing.consolidate_postprocessing import consolidate_folds, collect_cv_niftis, consolidate_folds_random, consolidate_folds_major
+from nnunet.postprocessing.consolidate_postprocessing import consolidate_folds, collect_cv_niftis, consolidate_folds_multi_rater
 from nnunet.utilities.folder_names import get_output_folder_name
 from nnunet.paths import default_cascade_trainer, default_trainer, default_plans_identifier
 
@@ -148,10 +148,10 @@ def main():
                     print("running missing postprocessing for %s and model %s" % (id_task_mapping[t], m))
                     if 'major' in tr:
                         print(f'For {tr} I use consolidate_folds_major')
-                        consolidate_folds_major(output_folder, threshold, folds=folds)
+                        consolidate_folds_multi_rater(output_folder, threshold, folds=folds, multi_rater_mode='major', task = task_name)
                     elif 'random' in tr:
                         print(f'For {tr} I use consolidate_folds_random')
-                        consolidate_folds_random(output_folder, threshold, folds=folds)
+                        consolidate_folds_multi_rater(output_folder, threshold, folds=folds,multi_rater_mode='random', task = task_name)
                     else:
                         consolidate_folds(output_folder, threshold, folds=folds)
 
