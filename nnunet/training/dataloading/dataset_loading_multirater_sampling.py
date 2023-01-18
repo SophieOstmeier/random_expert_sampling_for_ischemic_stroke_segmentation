@@ -12,17 +12,11 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 import glob
-import sys
 from natsort import natsorted
 from collections import OrderedDict
-
-import SimpleITK
-import nibabel
 import numpy as np
 from multiprocessing import Pool
-
 from batchgenerators.dataloading.data_loader import SlimDataLoaderBase
-
 from nnunet.configuration import default_num_threads
 from nnunet.paths import preprocessing_output_dir
 from batchgenerators.utilities.file_and_folder_operations import *
@@ -125,8 +119,7 @@ def load_dataset_multi_rater(folder, num_cases_properties_loading_threshold=1000
 
     return dataset
 
-
-class DataLoader3D_multi_rater(SlimDataLoaderBase):
+class DataLoader3D_random(SlimDataLoaderBase):
     def __init__(self, data, patch_size, final_patch_size, batch_size, has_prev_stage=False,
                  oversample_foreground_percent=0.33, memmap_mode="r+", pad_mode="edge", pad_kwargs_data=None,
                  pad_sides=None):
@@ -145,7 +138,7 @@ class DataLoader3D_multi_rater(SlimDataLoaderBase):
         :param random: Sample keys randomly; CAREFUL! non-random sampling requires batch_size=1, otherwise you will iterate batch_size times over the dataset
         :param oversample_foreground: half the batch will be forced to contain at least some foreground (equal prob for each of the foreground classes)
         """
-        super(DataLoader3D_multi_rater, self).__init__(data, batch_size, None)
+        super(DataLoader3D_random, self).__init__(data, batch_size, None)
         if pad_kwargs_data is None:
             pad_kwargs_data = OrderedDict()
         self.pad_kwargs_data = pad_kwargs_data
@@ -186,14 +179,6 @@ class DataLoader3D_multi_rater(SlimDataLoaderBase):
         data_shape = (self.batch_size, num_color_channels, *self.patch_size)
         seg_shape = (self.batch_size, num_seg, *self.patch_size)
         return data_shape, seg_shape
-
-
-class DataLoader3D_random(DataLoader3D_multi_rater):
-    def __init__(self, data, patch_size, final_patch_size, batch_size, has_prev_stage=False,
-                 oversample_foreground_percent=0.33, memmap_mode="r+", pad_mode="edge", pad_kwargs_data=None,
-                 pad_sides=None):
-
-        super(DataLoader3D_random, self).__init__(data, batch_size, None)
 
     def generate_train_batch(self):
         # select keys for never having a batch with only empty cases
@@ -367,11 +352,66 @@ class DataLoader3D_random(DataLoader3D_multi_rater):
         #print(case_all_data.shape)
         return {'data': data, 'seg': seg, 'properties': case_properties, 'keys': selected_keys}
 
-class DataLoader3D_major(DataLoader3D_multi_rater):
+class DataLoader3D_major(SlimDataLoaderBase):
     def __init__(self, data, patch_size, final_patch_size, batch_size, has_prev_stage=False,
                  oversample_foreground_percent=0.33, memmap_mode="r+", pad_mode="edge", pad_kwargs_data=None,
                  pad_sides=None):
+        """
+        :param data: get this with load_dataset(folder, stage=0). Plug the return value in here and you are g2g (good to go)
+        :param patch_size: what patch size will this data loader return? it is common practice to first load larger
+        patches so that a central crop after data augmentation can be done to reduce border artifacts. If unsure, use
+        get_patch_size() from data_augmentation.default_data_augmentation
+        :param final_patch_size: what will the patch finally be cropped to (after data augmentation)? this is the patch
+        size that goes into your network. We need this here because we will pad patients in here so that patches at the
+        border of patients are sampled properly
+        :param batch_size:
+        :param num_batches: how many batches will the data loader produce before stopping? None=endless
+        :param seed:
+        :param stage: ignore this (Fabian only)
+        :param random: Sample keys randomly; CAREFUL! non-random sampling requires batch_size=1, otherwise you will iterate batch_size times over the dataset
+        :param oversample_foreground: half the batch will be forced to contain at least some foreground (equal prob for each of the foreground classes)
+        """
         super(DataLoader3D_major, self).__init__(data, batch_size, None)
+        if pad_kwargs_data is None:
+            pad_kwargs_data = OrderedDict()
+        self.pad_kwargs_data = pad_kwargs_data
+        self.pad_mode = pad_mode
+        self.oversample_foreground_percent = oversample_foreground_percent
+        self.final_patch_size = final_patch_size
+        self.has_prev_stage = has_prev_stage
+        self.patch_size = patch_size
+        self.list_of_keys = list(self._data.keys())
+        # need_to_pad denotes by how much we need to pad the data so that if we sample a patch of size final_patch_size
+        # (which is what the network will get) these patches will also cover the border of the patients
+
+        # always zero because transformation of batchgenerator not used, instead torchio (more flexible, awesome!)
+        self.need_to_pad = (np.array(patch_size) - np.array(final_patch_size)).astype(int)
+
+        if pad_sides is not None:
+            if not isinstance(pad_sides, np.ndarray):
+                pad_sides = np.array(pad_sides)
+            self.need_to_pad += pad_sides
+        self.memmap_mode = memmap_mode
+        self.num_channels = None
+        self.pad_sides = pad_sides
+        self.data = data
+        self.data_shape, self.seg_shape = self.determine_shapes()
+
+    def get_do_oversample(self, batch_idx):
+        return not batch_idx < round(self.batch_size * (1 - self.oversample_foreground_percent))
+
+    def determine_shapes(self):
+        num_seg = 1
+
+        k = list(self._data.keys())[0]
+        if isfile(self._data[k]['data_file_rater1'][:-4] + ".npy"):
+            case_all_data = np.load(self._data[k]['data_file_rater1'][:-4] + ".npy", self.memmap_mode)
+        else:
+            case_all_data = np.load(self._data[k]['data_file_rater1'])['data']
+        num_color_channels = case_all_data.shape[0] - 1
+        data_shape = (self.batch_size, num_color_channels, *self.patch_size)
+        seg_shape = (self.batch_size, num_seg, *self.patch_size)
+        return data_shape, seg_shape
 
     def generate_train_batch(self):
         selected_keys = np.random.choice(self.list_of_keys, self.batch_size, True, None)

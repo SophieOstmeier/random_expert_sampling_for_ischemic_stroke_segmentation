@@ -11,8 +11,6 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-import sys
-
 from nnunet.training.dataloading.dataset_loading_multirater_sampling import DataLoader3D_random
 import numpy as np
 from batchgenerators.utilities.file_and_folder_operations import *
@@ -28,7 +26,7 @@ from os.path import exists
 import shutil
 from nnunet.training.network_training.nnUNetTrainerV2_multi_rater_data_loader import nnUNetTrainerV2_multi_rater_data_loader
 
-class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2_random_data_loader_3rater):
+class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2_multi_rater_data_loader):
     def __init__(self, plans_file, fold, output_folder=None, dataset_directory=None, batch_dice=True, stage=None,
                  unpack_data=True, deterministic=True, fp16=False):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
