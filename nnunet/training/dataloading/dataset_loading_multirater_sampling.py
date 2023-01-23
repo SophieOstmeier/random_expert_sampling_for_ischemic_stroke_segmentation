@@ -163,6 +163,9 @@ class DataLoader3D_random(SlimDataLoaderBase):
         self.pad_sides = pad_sides
         self.data = data
         self.data_shape, self.seg_shape = self.determine_shapes()
+        k = list(self._data.keys())[0]
+        self.seg_list = [i for i in self._data[k].keys() if i.startswith('data_file')]
+        self.number_of_raters = len(self.seg_list)
 
     def get_do_oversample(self, batch_idx):
         return not batch_idx < round(self.batch_size * (1 - self.oversample_foreground_percent))
@@ -194,9 +197,6 @@ class DataLoader3D_random(SlimDataLoaderBase):
         data = np.zeros(self.data_shape, dtype=np.float32)
         seg = np.zeros(self.seg_shape, dtype=np.float32)
 
-        k = list(self._data.keys())[0]
-        random_seg_list = [i for i in self._data[k].keys() if i.startswith('data_file')]
-
         case_properties = []
         for j, i in enumerate(selected_keys):
             # oversampling foreground will improve stability of model training, especially if many patches are empty
@@ -214,7 +214,8 @@ class DataLoader3D_random(SlimDataLoaderBase):
 
             # cases are stored as npz, but we require unpack_dataset to be run. This will decompress them into npy
             # which is much faster to access
-            random_seg = random.choice(random_seg_list)
+            random_seg = random.choice(self.seg_list)
+
             if isfile(self._data[i][random_seg][:-4] + ".npy"):
                 case_all_data = np.load(self._data[i][random_seg][:-4] + ".npy", self.memmap_mode)
             else:
@@ -397,6 +398,10 @@ class DataLoader3D_major(SlimDataLoaderBase):
         self.data = data
         self.data_shape, self.seg_shape = self.determine_shapes()
 
+        k = list(self._data.keys())[0]
+        self.major_seg_list = [i for i in self._data[k].keys() if i.startswith('data_file')]
+        self.number_of_raters = len(self.major_seg_list)
+
     def get_do_oversample(self, batch_idx):
         return not batch_idx < round(self.batch_size * (1 - self.oversample_foreground_percent))
 
@@ -418,9 +423,6 @@ class DataLoader3D_major(SlimDataLoaderBase):
         data = np.zeros(self.data_shape, dtype=np.float32)
         seg = np.zeros(self.seg_shape, dtype=np.float32)
 
-        k = list(self._data.keys())[0]
-        major_seg_list = [i for i in self._data[k].keys() if i.startswith('data_file')]
-
         case_properties = []
         for j, i in enumerate(selected_keys):
             # oversampling foreground will improve stability of model training, especially if many patches are empty
@@ -440,20 +442,20 @@ class DataLoader3D_major(SlimDataLoaderBase):
             # which is much faster to access
             data_list= []
             if isfile(self._data[i]['data_file_rater1'][:-4] + ".npy"):
-                for a in major_seg_list:
+                for a in self.major_seg_list:
                     case_all_data_expert = np.load(self._data[i][a][:-4] + ".npy", self.memmap_mode)
                     data_list.append(case_all_data_expert[1,:,:,:])
-                case_all_data_sum = np.sum(data_list, axis= 0) > (len(major_seg_list)/2)
+                case_all_data_sum = np.sum(data_list, axis= 0) > (self.number_of_raters/2)
                 case_all_data_seg = case_all_data_sum.astype(np.float)
                 # stack majority vote segmentation to input image. It does not mater which one. All experts have the same input image
                 # We could exchange Abdel for any other experts
                 case_all_data = np.stack((np.load(self._data[i]['data_file_rater1'][:-4] + ".npy", self.memmap_mode)[0,:,:,:], case_all_data_seg), axis=0)
 
             else:
-                for a in major_seg_list:
+                for a in self.major_seg_list:
                     case_all_data_expert = np.load(self._data[i][a])['data']
                     data_list.append(case_all_data_expert[1,:,:,:])
-                case_all_data_sum = np.sum(data_list, axis= 0) > (len(major_seg_list)/2)
+                case_all_data_sum = np.sum(data_list, axis= 0) > (self.number_of_raters/2)
                 case_all_data_seg = case_all_data_sum.astype(np.float)
                 # stack majority vote segmentation to input image. It does not mater which one. All experts have the same input image
                 # We could exchange Abdel for any other experts

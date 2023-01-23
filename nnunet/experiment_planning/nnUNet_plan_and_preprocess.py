@@ -73,6 +73,9 @@ def main():
                              "IDENTIFIER, the correct training command would be:\n"
                              "'nnUNet_train CONFIG TRAINER TASKID FOLD -p nnUNetPlans_pretrained_IDENTIFIER "
                              "-pretrained_weights FILENAME'")
+    parser.add_argument("-multiple_raters", required=False, default=False, action="store_true",
+                        help="If you want to train on multiple rater, it can process multiple raters at once and from one "
+                             "preprocessed folder with the needed data for the multi rater training")
 
     args = parser.parse_args()
     task_ids = args.task_ids
@@ -81,6 +84,7 @@ def main():
     tf = args.tf
     planner_name3d = args.planner3d
     planner_name2d = args.planner2d
+    multiple_raters = args.multiple_raters
 
     if planner_name3d == "None":
         planner_name3d = None
@@ -96,6 +100,7 @@ def main():
 
     # we need raw data
     tasks = []
+    multi_tasks = ""
     for i in task_ids:
         i = int(i)
 
@@ -107,6 +112,10 @@ def main():
         crop(task_name, False, tf)
 
         tasks.append(task_name)
+
+        if multiple_raters:
+            multi_tasks += str(i)
+
 
     search_in = join(nnunet.__path__[0], "experiment_planning")
 
@@ -166,6 +175,27 @@ def main():
                 exp_planner.run_preprocessing(threads)
 
 
+    if multiple_raters:
+        dir_multirater = os.path.join(preprocessing_output_dir, f"Task000_{multi_tasks}_raters")
+        maybe_mkdir_p(dir_multirater)
+        for i in range(len(task_ids)):
+            dir_task = os.path.join(preprocessing_output_dir, task_ids[i])
+            gt_folder = join(dir_task, "gt_segmentation")
+            data_folder = join(dir_task, "nnUNetData_plans_v2.1_stage0")
+            gt_folder_multi_rater = join(dir_multirater,f"gt_segmentation_rater{i}")
+            data_folder_multi_rater = join(dir_multirater, f"nnUNetData_plans_v2.1_stage0_rater{i}")
+            try:
+                if i == 0:
+                    shutil.copy(dir_task,dir_multirater)
+                    os.rename(gt_folder, gt_folder_multi_rater)
+                    os.rename(data_folder, data_folder_multi_rater)
+                else:
+                    shutil.copyfile(gt_folder, gt_folder_multi_rater)
+                    shutil.copyfile(data_folder, data_folder_multi_rater)
+            except:
+                print("Could not built multirater training, mmultiple stage or incomplete preprocessing of the subtasks")
+        print("Done. Folder for multi_rater training ready")
+        
 if __name__ == "__main__":
     main()
 

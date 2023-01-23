@@ -322,6 +322,7 @@ class GenericPreprocessor(object):
 
     def _run_internal(self, target_spacing, case_identifier, output_folder_stage, cropped_output_dir, force_separate_z,
                       all_classes):
+
         data, seg, properties = self.load_cropped(cropped_output_dir, case_identifier)
 
         data = data.transpose((0, *[i + 1 for i in self.transpose_forward]))
@@ -355,6 +356,7 @@ class GenericPreprocessor(object):
         print("saving: ", os.path.join(output_folder_stage, "%s.npz" % case_identifier))
         np.savez_compressed(os.path.join(output_folder_stage, "%s.npz" % case_identifier),
                             data=all_data.astype(np.float32))
+
         with open(os.path.join(output_folder_stage, "%s.pkl" % case_identifier), 'wb') as f:
             pickle.dump(properties, f)
 
