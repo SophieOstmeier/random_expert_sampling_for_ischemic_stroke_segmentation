@@ -417,6 +417,9 @@ def determine_postprocessing_3rater(base, gt_labels_folder, gt_labels_folder_mul
     :param debug: if True then the temporary files will not be deleted
     :return:
     """
+    print("base: ",base)
+    print("gt_labels_folder: ",gt_labels_folder)
+    print("gt_labels_folder_multi_rater: ",gt_labels_folder_multi_rater)
     # lets see what classes are in the dataset
     classes = [int(i) for i in load_json(join(base, raw_subfolder_name, "summary.json"))['results']['median'].keys() if
                int(i) != 0]
@@ -679,6 +682,7 @@ def determine_postprocessing_3rater(base, gt_labels_folder, gt_labels_folder_mul
                          json_author="Fabian", num_threads=processes)
 
     for i in range(number_experts):
+        print("Evaluating for rater", i+1)
         _ = aggregate_scores(pred_gt_tuples_expert_list[i], threshold=threshold, labels=classes,
                          json_output_file=join(base, final_subf_name, f"summary_rater{i+1}.json"),
                          excel_output_file=join(base, final_subf_name, f"summary_rater{i+1}.xlsx"),
