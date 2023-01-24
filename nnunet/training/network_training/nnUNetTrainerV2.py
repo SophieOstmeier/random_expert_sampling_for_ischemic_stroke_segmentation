@@ -60,6 +60,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
         print('Current memory usage for CUDA=0:', gpus[0],'and for CUDA=1:', gpus[1])
         print('Choosing:', np.argmin(gpus))
         return int(np.argmin(gpus))
+
     def initialize(self, training=True, force_load_plans=False):
         """
         - replaced get_default_augmentation with get_moreDA_augmentation

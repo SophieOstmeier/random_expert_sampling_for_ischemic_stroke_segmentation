@@ -37,7 +37,7 @@ class nnUNetTrainerV2_majority_data_loader_3rater(nnUNetTrainerV2):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
         self.max_num_epochs = 700 # changed from 1000
-        self.threshold = 1
+        self.threshold = float(1)
         self.gt_niftis_folder_major = self.gt_niftis_folder + '_major'
 
     def initialize(self, training=True, force_load_plans=False):
@@ -84,9 +84,12 @@ class nnUNetTrainerV2_majority_data_loader_3rater(nnUNetTrainerV2):
                 self.dl_tr, self.dl_val = self.get_basic_generators()
                 if self.unpack_data:
                     print("unpacking dataset")
+
+                ### for multirater training
                     for i in glob.glob(self.dataset_directory + "/" + self.plans['data_identifier'] + "_stage%d_rater*" % self.stage):
                         unpack_dataset(i)
                     print("done")
+                ### for multirater training
                 else:
                     print(
                         "INFO: Not unpacking data! Training may be slow due to that. Pray you are not using 2d or you "
@@ -151,6 +154,8 @@ class nnUNetTrainerV2_majority_data_loader_3rater(nnUNetTrainerV2):
         maybe_mkdir_p(self.gt_niftis_folder_major)
 
         assert self.was_initialized, "must initialize, ideally with checkpoint (or train first)"
+
+        print(self.dataset_val)
         if self.dataset_val is None:
             self.load_dataset()
             self.do_split()
@@ -201,6 +206,8 @@ class nnUNetTrainerV2_majority_data_loader_3rater(nnUNetTrainerV2):
         #get the list and number of raters
         eg = list(self.dataset_val.keys())[0]
         major_seg_list = [i for i in self.dataset[eg].keys() if i.startswith('data_file')]
+
+        self.print_to_log_file("Validating on these ", len(self.dataset_val.keys())," cases: ", self.dataset_val.keys())
 
         for k in self.dataset_val.keys():
             properties = load_pickle(self.dataset[k]['properties_file'])
@@ -264,7 +271,7 @@ class nnUNetTrainerV2_majority_data_loader_3rater(nnUNetTrainerV2):
             # save majority vote mask for validation if not already done so
 
             #if exists(join(self.gt_niftis_folder_major, fname + ".nii.gz")):
-            major_seg_gt_list = [self.gt_niftis_folder + f'_{i+1}' for i in range(len(major_seg_list))]
+            major_seg_gt_list = [self.gt_niftis_folder + f'_rater{i+1}' for i in range(len(major_seg_list))]
 
             data_list = []
             if not exists(join(self.gt_niftis_folder_major, fname + ".nii.gz")):

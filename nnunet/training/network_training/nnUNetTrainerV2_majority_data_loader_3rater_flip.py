@@ -12,7 +12,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 import SimpleITK
-from nnunet.training.dataloading.dataset_loading_majority_sampling import unpack_dataset,load_dataset_major, DataLoader3D_major
+from nnunet.training.dataloading.dataset_loading_multirater_sampling import unpack_dataset,load_dataset_multi_rater, DataLoader3D_major
 from nnunet.training.loss_functions.deep_supervision import MultipleOutputLoss2
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 from nnunet.training.data_augmentation.data_augmentation_moreDA import get_moreDA_augmentation
@@ -188,7 +188,7 @@ class nnUNetTrainerV2_majority_data_loader_3rater_flip(nnUNetTrainerV2):
         self.network.inference_apply_nonlin = softmax_helper
 
     def load_dataset(self):
-        self.dataset = load_dataset_major(self.folder_with_preprocessed_data)
+        self.dataset = load_dataset_multi_rater(self.folder_with_preprocessed_data)
 
     def get_basic_generators(self):
         self.load_dataset()
