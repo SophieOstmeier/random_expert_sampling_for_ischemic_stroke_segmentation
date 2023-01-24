@@ -20,7 +20,7 @@ from batchgenerators.utilities.file_and_folder_operations import *
 from nnunet.paths import preprocessing_output_dir
 from nnunet.configuration import default_num_threads
 from nnunet.evaluation.evaluator import aggregate_scores
-from nnunet.postprocessing.connected_components import determine_postprocessing, determine_postprocessing_3rater_major, determine_postprocessing_3rater_random
+from nnunet.postprocessing.connected_components import determine_postprocessing, determine_postprocessing_3rater
 import argparse
 
 
@@ -134,7 +134,7 @@ def consolidate_folds_multi_rater(output_folder_base, threshold, validation_fold
                      excel_output_file=join(output_folder_raw, "summary.excel"),
                      num_threads=default_num_threads)
 
-    determine_postprocessing_3rater_major(output_folder_base, output_folder_gt_all, output_folder_gt, threshold, 'cv_niftis_raw',
+    determine_postprocessing_3rater(output_folder_base, output_folder_gt_all, output_folder_gt, threshold, 'cv_niftis_raw',
                              final_subf_name="cv_niftis_postprocessed", processes=default_num_threads,
                              advanced_postprocessing=advanced_postprocessing)
     # determine_postprocessing will create a postprocessing.json file that can be used for inference
