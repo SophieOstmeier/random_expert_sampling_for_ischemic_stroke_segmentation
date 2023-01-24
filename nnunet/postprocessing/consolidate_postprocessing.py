@@ -104,7 +104,7 @@ def consolidate_folds_multi_rater(output_folder_base, threshold, validation_fold
     """
 
     output_folder_gt = join(preprocessing_output_dir,f"{task}/gt_segmentations_{multi_rater_mode}")
-    output_folder_gt_all = join(preprocessing_output_dir, f"{task}/gt_segmentations_rater")
+    output_folder_gt_all = join(preprocessing_output_dir, f"{task}/gt_segmentations")
 
     output_folder_raw = join(output_folder_base, "cv_niftis_raw")
     if isdir(output_folder_raw):
