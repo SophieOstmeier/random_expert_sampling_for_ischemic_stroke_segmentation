@@ -50,6 +50,7 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
             print("fold")
             print(fold['val'])
             validation_cases.extend(fold['val'])
+        print(validation_cases)
         return validation_cases
     def initialize(self, training=True, force_load_plans=False):
         """
