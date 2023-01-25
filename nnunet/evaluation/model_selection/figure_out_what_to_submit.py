@@ -139,6 +139,7 @@ def main():
                     evaluate_folder(join(output_folder, "gt_niftis"), cv_niftis_folder, classes)
 
             else:
+                print("here")
                 postprocessing_json = join(output_folder, "postprocessing.json")
                 cv_niftis_folder = join(output_folder, "cv_niftis_raw")
                 # we need cv_niftis_postprocessed to know the single model performance. And we need the
