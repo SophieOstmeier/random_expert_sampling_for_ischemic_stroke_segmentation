@@ -46,7 +46,7 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
         with open(filename, 'rb') as infile:
             obj = pickle.load(infile)
 
-        return [fold['val'] + "nii.gz" for num, fold in enumerate(obj)]
+        return [fold['val'] for num, fold in enumerate(obj)]
     def initialize(self, training=True, force_load_plans=False):
         """
         - replaced get_default_augmentation with get_moreDA_augmentation
@@ -308,8 +308,6 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
         gt_nifti_folder = join(self.output_folder_base, "gt_niftis")
         maybe_mkdir_p(gt_nifti_folder)
 
-
-        print(self.folder_with_preprocessed_data.rsplit("/",1)[0])
         base = self.folder_with_preprocessed_data.rsplit("/",1)[0]
         split_data = join(base, "splits_final.pkl")
         validation_list = self.gt_niftis_validation_list(split_data)
@@ -320,7 +318,7 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
             e = None
             while not success and attempts < 10:
                 try:
-                    if f.rsplit("/",1)[-1] in validation_list:
+                    if f.rsplit("/",1)[-1].rsplit(".")[0] in validation_list:
                         shutil.copy(f, gt_nifti_folder)
                         success = True
                 except OSError as e:
