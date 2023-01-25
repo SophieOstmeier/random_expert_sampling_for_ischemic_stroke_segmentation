@@ -41,14 +41,6 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
         self.threshold = float(1)
         self.gt_niftis_folder_random = self.gt_niftis_folder + '_random'
 
-    def gt_niftis_validation_list(self, filename):
-        # open pickle file
-        with open(filename, 'rb') as infile:
-            obj = pickle.load(infile)
-        validation_cases = []
-        for num, fold in enumerate(obj):
-            validation_cases.extend(fold['val'])
-        return validation_cases
     def initialize(self, training=True, force_load_plans=False):
         """
         - replaced get_default_augmentation with get_moreDA_augmentation

@@ -135,6 +135,14 @@ class nnUNetTrainer(NetworkTrainer):
         self.conv_per_stage = None
         self.regions_class_order = None
 
+    def gt_niftis_validation_list(self, filename):
+        # open pickle file
+        with open(filename, 'rb') as infile:
+            obj = pickle.load(infile)
+        validation_cases = []
+        for num, fold in enumerate(obj):
+            validation_cases.extend(fold['val'])
+        return validation_cases
     def update_fold(self, fold):
         """
         used to swap between folds for inference (ensemble of models from cross-validation)
