@@ -309,7 +309,7 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
         maybe_mkdir_p(gt_nifti_folder)
 
         split_data = join(self.folder_with_preprocessed_data.rsplit("/")[0], "splits_final.pkl")
-
+        print(split_data)
         validation_list = self.gt_niftis_validation_list(split_data)
 
         for f in subfiles(self.gt_niftis_folder_random, suffix=".nii.gz"):
