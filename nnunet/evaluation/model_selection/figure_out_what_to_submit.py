@@ -162,7 +162,7 @@ def main():
             summary_file = join(cv_niftis_folder, "summary.json")
             results[m] = get_mean_foreground_dice(summary_file)
             foreground_mean(summary_file)
-            all_results[m] = load_json(summary_file)['results']['median']
+            all_results[m] = load_json(summary_file)['results']['mean']
             valid_models.append(m)
 
         if not disable_ensembling:

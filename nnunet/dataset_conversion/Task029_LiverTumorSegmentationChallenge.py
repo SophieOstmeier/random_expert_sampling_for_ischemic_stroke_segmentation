@@ -52,8 +52,8 @@ def export_segmentations_postprocess(indir, outdir):
 
 
 if __name__ == "__main__":
-    train_dir = "/media/fabian/DeepLearningData/tmp/LITS-Challenge-Train-Data"
-    test_dir = "/media/fabian/My Book/datasets/LiTS/test_data"
+    train_dir = "/Users/sophieostmeier/Downloads/Training Batch 2"
+    test_dir = ""
 
 
     output_folder = "/media/fabian/My Book/MedicalDecathlon/MedicalDecathlon_raw_splitted/Task029_LITS"
