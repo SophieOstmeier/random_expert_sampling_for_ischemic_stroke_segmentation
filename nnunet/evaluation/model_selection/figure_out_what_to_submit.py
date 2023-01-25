@@ -144,7 +144,7 @@ def main():
                 cv_niftis_folder = join(output_folder, "cv_niftis_raw")
                 # we need cv_niftis_postprocessed to know the single model performance. And we need the
                 # postprocessing_json. If either of those is missing, rerun consolidate_folds
-                print(isfile(postprocessing_json))
+                print(postprocessing_json)
                 if not isfile(postprocessing_json) or not isdir(cv_niftis_folder):
                     print("here")
                     print("running missing postprocessing for %s and model %s" % (id_task_mapping[t], m))
