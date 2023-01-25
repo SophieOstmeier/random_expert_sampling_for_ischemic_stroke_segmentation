@@ -141,7 +141,7 @@ def main():
             else:
                 postprocessing_json = join(output_folder, "postprocessing.json")
                 cv_niftis_folder = join(output_folder, "cv_niftis_raw")
-
+                print("here")
                 # we need cv_niftis_postprocessed to know the single model performance. And we need the
                 # postprocessing_json. If either of those is missing, rerun consolidate_folds
                 if not isfile(postprocessing_json) or not isdir(cv_niftis_folder):
