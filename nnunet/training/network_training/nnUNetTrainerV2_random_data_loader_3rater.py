@@ -318,9 +318,11 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
             success = False
             attempts = 0
             e = None
+            case = f.rsplit("/",1)[-1].rsplit(".")[0]
+            print(case)
             while not success and attempts < 10:
                 try:
-                    if f.rsplit("/",1)[-1].rsplit(".")[0] in validation_list[0]:
+                    if case in validation_list:
                         shutil.copy(f, gt_nifti_folder)
                         success = True
                 except OSError as e:
