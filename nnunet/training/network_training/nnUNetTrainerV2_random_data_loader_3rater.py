@@ -308,6 +308,8 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
         # # done we won't know what self.gt_niftis_folder was, so now we copy all the niftis into a separate folder to
         # # be used later
         gt_nifti_folder = join(self.output_folder_base, "gt_niftis")
+        if os.path.exists(gt_nifti_folder):
+            os.remove(gt_nifti_folder)
         maybe_mkdir_p(gt_nifti_folder)
 
         base = self.folder_with_preprocessed_data.rsplit("/",1)[0]
@@ -325,6 +327,8 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
                     if case in validation_list:
                         shutil.copy(f, gt_nifti_folder)
                         success = True
+                    else:
+                        continue
                 except OSError as e:
                     attempts += 1
                     sleep(1)
