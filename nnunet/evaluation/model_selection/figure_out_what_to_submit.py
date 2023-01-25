@@ -108,7 +108,7 @@ def main():
             output_folder = get_output_folder_name(m, id_task_mapping[t], trainer, pl)
             if not isdir(output_folder):
                 raise RuntimeError("Output folder for model %s is missing, expected: %s" % (m, output_folder))
-
+            print("here")
             if disable_postprocessing:
                 # we need to collect the predicted niftis from the 5-fold cv and evaluate them against the ground truth
                 cv_niftis_folder = join(output_folder, 'cv_niftis_raw')
@@ -162,7 +162,7 @@ def main():
             summary_file = join(cv_niftis_folder, "summary.json")
             results[m] = get_mean_foreground_dice(summary_file)
             foreground_mean(summary_file)
-            all_results[m] = load_json(summary_file)['results']['mean']
+            all_results[m] = load_json(summary_file)['results']['median']
             valid_models.append(m)
 
         if not disable_ensembling:
