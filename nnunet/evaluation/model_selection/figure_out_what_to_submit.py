@@ -150,7 +150,7 @@ def main():
                         print(f'For {tr} I use consolidate_folds_major')
                         consolidate_folds_multi_rater(output_folder, threshold, folds=folds, multi_rater_mode='major', task = task_name)
                     elif 'random' in tr:
-                        print("here")
+                        print("here wiekfhpwqirhfpq")
                         print(f'For {tr} I use consolidate_folds_random')
                         consolidate_folds_multi_rater(output_folder, threshold, folds=folds,multi_rater_mode='random', task = task_name)
                     else:
