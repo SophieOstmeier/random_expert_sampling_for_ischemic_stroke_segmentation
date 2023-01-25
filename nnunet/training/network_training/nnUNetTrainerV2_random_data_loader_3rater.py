@@ -47,7 +47,7 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
             obj = pickle.load(infile)
         validation_cases = []
         for num, fold in enumerate(obj):
-            validation_cases.extend(fold['val'])
+            validation_cases.extend(list(fold['val']))
         return validation_cases
     def initialize(self, training=True, force_load_plans=False):
         """
@@ -321,7 +321,6 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
             while not success and attempts < 10:
                 try:
                     print(f.rsplit("/",1)[-1].rsplit(".")[0])
-                    print(validation_list)
                     if f.rsplit("/",1)[-1].rsplit(".")[0] in validation_list[0]:
                         print("here")
                         shutil.copy(f, gt_nifti_folder)
