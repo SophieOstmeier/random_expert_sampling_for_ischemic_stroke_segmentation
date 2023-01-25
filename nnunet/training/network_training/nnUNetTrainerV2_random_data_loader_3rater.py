@@ -333,9 +333,10 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
         for i in subfiles(gt_nifti_folder, suffix=".nii.gz"):
             if not i.rsplit("/",1)[-1].rsplit(".")[0] in validation_list:
                 os.remove(i)
-
+        count = 0
         for i in subfiles(gt_nifti_folder, suffix=".nii.gz", join=False):
             print(i)
+            count += 1
 
 
         #self.network.train(current_mode)
