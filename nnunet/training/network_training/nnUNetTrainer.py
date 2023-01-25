@@ -688,6 +688,14 @@ class nnUNetTrainer(NetworkTrainer):
             if not success:
                 raise OSError(f"Something went wrong while copying nifti files to {gt_nifti_folder}. See above for the trace.")
 
+        base = self.folder_with_preprocessed_data.rsplit("/", 1)[0]
+        split_data = join(base, "splits_final.pkl")
+        validation_list = self.gt_niftis_validation_list(split_data)
+
+        for i in subfiles(gt_nifti_folder, suffix=".nii.gz"):
+            if not i.rsplit("/", 1)[-1].rsplit(".")[0] in validation_list:
+                os.remove(i)
+
         self.network.train(current_mode)
 
     def run_online_evaluation(self, output, target):

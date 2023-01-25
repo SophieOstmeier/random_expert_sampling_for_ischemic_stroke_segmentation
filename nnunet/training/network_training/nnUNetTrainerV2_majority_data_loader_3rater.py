@@ -337,5 +337,13 @@ class nnUNetTrainerV2_majority_data_loader_3rater(nnUNetTrainerV2):
                 if e is not None:
                     raise e
 
+        base = self.folder_with_preprocessed_data.rsplit("/", 1)[0]
+        split_data = join(base, "splits_final.pkl")
+        validation_list = self.gt_niftis_validation_list(split_data)
+
+        for i in subfiles(gt_nifti_folder, suffix=".nii.gz"):
+            if not i.rsplit("/", 1)[-1].rsplit(".")[0] in validation_list:
+                os.remove(i)
+
         self.network.train(current_mode)
 
