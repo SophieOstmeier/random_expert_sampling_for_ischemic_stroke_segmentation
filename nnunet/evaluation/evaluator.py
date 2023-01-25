@@ -30,6 +30,8 @@ import pandas as pd
 import SimpleITK as sitk
 from batchgenerators.utilities.file_and_folder_operations import save_json, subfiles, join
 from flatten_dict import flatten
+import bootstrapped.bootstrap as bs
+import bootstrapped.stats_functions as bs_stats
 
 import time
 
@@ -499,9 +501,9 @@ def aggregate_scores(test_ref_pair,
     for label in all_scores["median"]:
         for score in all_scores["median"][label]:
             if nanmean:
-                all_scores["median"][label][score] = float(np.nanmedian(all_scores["median"][label][score]))
+                all_scores["median"][label][score] = bs.bootstrap(float(np.nanmedian(all_scores["median"][label][score])), stat_func=bs_stats.median)
             else:
-                all_scores["median"][label][score] = float(np.median(all_scores["median"][label][score]))
+                all_scores["median"][label][score] = bs.bootstrap(float(np.median(all_scores["median"][label][score])), stat_func=bs_stats.median)
 
     for label in all_scores["image-level classification"]:
         for score in all_scores["image-level classification"][label]:

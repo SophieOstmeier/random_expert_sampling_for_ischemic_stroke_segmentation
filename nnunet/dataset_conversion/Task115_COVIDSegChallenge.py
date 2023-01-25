@@ -274,9 +274,11 @@ def check_dataset_same(dataset_old='/home/fabian/Downloads/COVID-19-20/Train',
 if __name__ == '__main__':
     # this is the folder containing the data as downloaded from https://covid-segmentation.grand-challenge.org/COVID-19-20/
     # (zip file was decompressed!)
-    downloaded_data_dir = '/home/fabian/data/COVID-19-20_officialCorrected/COVID-19-20_v2/'
+    downloaded_data_dir = '/Users/sophieostmeier/Downloads/COVID-19-20_v2'
 
     task_name = "Task115_COVIDSegChallenge"
+
+    nnUNet_raw_data = "/Users/sophieostmeier/Documents/NCCTfolder/nnUNet_raw_data_base"
 
     target_base = join(nnUNet_raw_data, task_name)
 
