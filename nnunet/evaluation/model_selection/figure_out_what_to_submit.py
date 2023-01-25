@@ -145,11 +145,12 @@ def main():
                 # postprocessing_json. If either of those is missing, rerun consolidate_folds
                 if not isfile(postprocessing_json) or not isdir(cv_niftis_folder):
                     print("running missing postprocessing for %s and model %s" % (id_task_mapping[t], m))
-                    print("here")
+
                     if 'major' in tr:
                         print(f'For {tr} I use consolidate_folds_major')
                         consolidate_folds_multi_rater(output_folder, threshold, folds=folds, multi_rater_mode='major', task = task_name)
                     elif 'random' in tr:
+                        print("here")
                         print(f'For {tr} I use consolidate_folds_random')
                         consolidate_folds_multi_rater(output_folder, threshold, folds=folds,multi_rater_mode='random', task = task_name)
                     else:
