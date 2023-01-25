@@ -108,7 +108,7 @@ def main():
             output_folder = get_output_folder_name(m, id_task_mapping[t], trainer, pl)
             if not isdir(output_folder):
                 raise RuntimeError("Output folder for model %s is missing, expected: %s" % (m, output_folder))
-            print("here")
+
             if disable_postprocessing:
                 # we need to collect the predicted niftis from the 5-fold cv and evaluate them against the ground truth
                 cv_niftis_folder = join(output_folder, 'cv_niftis_raw')
