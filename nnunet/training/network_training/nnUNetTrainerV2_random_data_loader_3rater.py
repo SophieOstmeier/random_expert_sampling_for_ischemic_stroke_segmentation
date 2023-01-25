@@ -313,14 +313,13 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
         base = self.folder_with_preprocessed_data.rsplit("/",1)[0]
         split_data = join(base, "splits_final.pkl")
         validation_list = self.gt_niftis_validation_list(split_data)
-
+        print(subfiles(self.gt_niftis_folder_random, suffix=".nii.gz"))
         for f in subfiles(self.gt_niftis_folder_random, suffix=".nii.gz"):
             success = False
             attempts = 0
             e = None
             while not success and attempts < 10:
                 try:
-                    print(f.rsplit("/",1)[-1].rsplit(".")[0])
                     if f.rsplit("/",1)[-1].rsplit(".")[0] in validation_list[0]:
                         shutil.copy(f, gt_nifti_folder)
                         success = True
