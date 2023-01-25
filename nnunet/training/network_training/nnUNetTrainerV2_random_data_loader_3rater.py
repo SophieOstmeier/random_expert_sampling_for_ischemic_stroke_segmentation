@@ -308,27 +308,20 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
         # # done we won't know what self.gt_niftis_folder was, so now we copy all the niftis into a separate folder to
         # # be used later
         gt_nifti_folder = join(self.output_folder_base, "gt_niftis")
-        if os.path.exists(gt_nifti_folder):
-            os.remove(gt_nifti_folder)
         maybe_mkdir_p(gt_nifti_folder)
 
         base = self.folder_with_preprocessed_data.rsplit("/",1)[0]
         split_data = join(base, "splits_final.pkl")
         validation_list = self.gt_niftis_validation_list(split_data)
-        print(subfiles(self.gt_niftis_folder_random, suffix=".nii.gz"))
+
         for f in subfiles(self.gt_niftis_folder_random, suffix=".nii.gz"):
             success = False
             attempts = 0
             e = None
-            case = f.rsplit("/",1)[-1].rsplit(".")[0]
-            print(case)
             while not success and attempts < 10:
                 try:
-                    if case in validation_list:
-                        shutil.copy(f, gt_nifti_folder)
-                        success = True
-                    else:
-                        continue
+                    shutil.copy(f, gt_nifti_folder)
+                    success = True
                 except OSError as e:
                     attempts += 1
                     sleep(1)
@@ -338,7 +331,7 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
                     raise e
 
         for i in subfiles(gt_nifti_folder, suffix=".nii.gz"):
-            if not i.rsplit("/",1)[-1].rsplit(".")[0] in validation_list[0]:
+            if not i.rsplit("/",1)[-1].rsplit(".")[0] in validation_list:
                 os.remove(i)
 
 
