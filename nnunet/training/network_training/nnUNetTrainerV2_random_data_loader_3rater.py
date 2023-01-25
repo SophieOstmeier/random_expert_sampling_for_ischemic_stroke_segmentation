@@ -338,6 +338,8 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
             print(i)
             count += 1
 
+        print(count)
+
 
         #self.network.train(current_mode)
 
