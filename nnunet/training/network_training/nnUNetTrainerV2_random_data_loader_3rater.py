@@ -308,7 +308,7 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
         gt_nifti_folder = join(self.output_folder_base, "gt_niftis")
         maybe_mkdir_p(gt_nifti_folder)
 
-        split_data = join(self.folder_with_preprocessed_data, "splits_final.pkl")
+        split_data = join(self.folder_with_preprocessed_data.rsplit("/")[0], "splits_final.pkl")
 
         validation_list = self.gt_niftis_validation_list(split_data)
 
