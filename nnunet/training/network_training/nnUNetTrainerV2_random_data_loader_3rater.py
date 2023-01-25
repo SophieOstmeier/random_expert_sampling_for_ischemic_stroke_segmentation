@@ -320,7 +320,8 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
                 try:
                     print(f.rsplit("/",1)[-1].rsplit(".")[0])
                     print(validation_list)
-                    if f.rsplit("/",1)[-1].rsplit(".")[0] in validation_list:
+                    if f.rsplit("/",1)[-1].rsplit(".")[0] in validation_list[0]:
+                        print("here")
                         shutil.copy(f, gt_nifti_folder)
                         success = True
                 except OSError as e:
@@ -332,7 +333,7 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
                     raise e
 
         for i in subfiles(gt_nifti_folder, suffix=".nii.gz"):
-            if not i.rsplit("/",1)[-1].rsplit(".")[0] in validation_list:
+            if not i.rsplit("/",1)[-1].rsplit(".")[0] in validation_list[0]:
                 os.remove(i)
 
 
