@@ -45,8 +45,10 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
         # open pickle file
         with open(filename, 'rb') as infile:
             obj = pickle.load(infile)
-
-        return [fold['val'] for num, fold in enumerate(obj)]
+        validation_cases = []
+        for num, fold in enumerate(obj):
+            validation_cases.extend(fold['val'])
+        return validation_cases
     def initialize(self, training=True, force_load_plans=False):
         """
         - replaced get_default_augmentation with get_moreDA_augmentation
