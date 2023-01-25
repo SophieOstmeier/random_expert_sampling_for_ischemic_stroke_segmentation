@@ -47,7 +47,8 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
             obj = pickle.load(infile)
         validation_cases = []
         for num, fold in enumerate(obj):
-            validation_cases.extend(list(fold['val']))
+            print(fold['val'])
+            validation_cases.extend(fold['val'])
         return validation_cases
     def initialize(self, training=True, force_load_plans=False):
         """
