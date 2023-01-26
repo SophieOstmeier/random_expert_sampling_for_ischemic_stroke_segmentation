@@ -53,10 +53,10 @@ def export_segmentations_postprocess(indir, outdir):
 
 if __name__ == "__main__":
     train_dir = "/Users/sophieostmeier/Downloads/Training Batch 2"
-    test_dir = ""
+    test_dir = None
 
 
-    output_folder = "/media/fabian/My Book/MedicalDecathlon/MedicalDecathlon_raw_splitted/Task029_LITS"
+    output_folder = "/Users/sophieostmeier/Documents/NCCTfolder/nnUNet_raw_data_base/Task029_LITS"
     img_dir = join(output_folder, "imagesTr")
     lab_dir = join(output_folder, "labelsTr")
     img_dir_te = join(output_folder, "imagesTs")
@@ -65,8 +65,8 @@ if __name__ == "__main__":
     maybe_mkdir_p(img_dir_te)
 
 
-    def load_save_train(args):
-        data_file, seg_file = args
+    def load_save_train(data_file, seg_file):
+        # data_file, seg_file = args
         pat_id = data_file.split("/")[-1]
         pat_id = "train_" + pat_id.split("-")[-1][:-4]
 
@@ -89,13 +89,20 @@ if __name__ == "__main__":
     nii_files_tr_data = subfiles(train_dir, True, "volume", "nii", True)
     nii_files_tr_seg = subfiles(train_dir, True, "segmen", "nii", True)
 
-    nii_files_ts = subfiles(test_dir, True, "test-volume", "nii", True)
+    if test_dir:
+        nii_files_ts = subfiles(test_dir, True, "test-volume", "nii", True)
+    else:
+        nii_files_ts = []
+        test_ids = []
 
-    p = Pool(default_num_threads)
-    train_ids = p.map(load_save_train, zip(nii_files_tr_data, nii_files_tr_seg))
-    test_ids = p.map(load_save_test, nii_files_ts)
-    p.close()
-    p.join()
+    #for i, l in zip(nii_files_tr_data, nii_files_tr_seg):
+        #load_save_train(i, l)
+
+    # p = Pool(default_num_threads)
+    # train_ids = p.map(load_save_train, zip(nii_files_tr_data, nii_files_tr_seg))
+    # #test_ids = p.map(load_save_test, nii_files_ts)
+    # p.close()
+    # p.join()
 
     json_dict = OrderedDict()
     json_dict['name'] = "LITS"
@@ -113,6 +120,7 @@ if __name__ == "__main__":
         "1": "liver",
         "2": "tumor"
     }
+    train_ids = subfiles(lab_dir, join=False)
 
     json_dict['numTraining'] = len(train_ids)
     json_dict['numTest'] = len(test_ids)
