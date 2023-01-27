@@ -11,7 +11,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-from nnunet.training.dataloading.dataset_loading_multirater_sampling import unpack_dataset,load_dataset_random, DataLoader3D_random
+from nnunet.training.dataloading.dataset_loading_multirater_sampling import unpack_dataset,load_dataset_multi_rater, DataLoader3D_random
 from nnunet.training.loss_functions.deep_supervision import MultipleOutputLoss2
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 from nnunet.training.data_augmentation.data_augmentation_moreDA import get_moreDA_augmentation
@@ -22,7 +22,7 @@ from nnunet.configuration import default_num_threads
 from nnunet.evaluation.evaluator import aggregate_scores
 from nnunet.inference.segmentation_export import save_segmentation_nifti_from_softmax
 from nnunet.network_architecture.neural_network import SegmentationNetwork
-from nnunet.postprocessing.connected_components import determine_postprocessing
+from nnunet.postprocessing.connected_components import determine_postprocessing_3rater
 import shutil
 from multiprocessing import Pool
 from time import sleep
