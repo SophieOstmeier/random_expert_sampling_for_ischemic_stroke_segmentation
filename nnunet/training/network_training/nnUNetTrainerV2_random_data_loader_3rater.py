@@ -22,6 +22,7 @@ from multiprocessing import Pool
 from time import sleep
 from os.path import exists
 from nnunet.training.loss_functions.deep_supervision import MultipleOutputLoss2
+from nnunet.training.loss_functions.crossentropy import RobustCrossEntropyLoss
 from nnunet.training.network_training.nnUNetTrainerV2 import nnUNetTrainerV2
 from nnunet.training.data_augmentation.data_augmentation_moreDA import get_moreDA_augmentation
 import numpy as np
@@ -40,6 +41,7 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
         self.max_num_epochs = 1000 # changed from 1000
         self.threshold = float(1)
         self.gt_niftis_folder_random = self.gt_niftis_folder + '_random'
+        self.loss = RobustCrossEntropyLoss()
 
     def initialize(self, training=True, force_load_plans=False):
         """
