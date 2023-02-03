@@ -236,9 +236,6 @@ class GenericPreprocessor(object):
         :return:
         """
 
-        print("data is!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!:", data)
-        print("data len is!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!:", len(data))
-
         # target_spacing is already transposed, properties["original_spacing"] is not so we need to transpose it!
         # data, seg are already transposed. Double check this using the properties
         original_spacing_transposed = np.array(properties["original_spacing"])[self.transpose_forward]
