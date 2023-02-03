@@ -207,6 +207,7 @@ class GenericPreprocessor(object):
         """
         self.transpose_forward = transpose_forward
         self.intensityproperties = intensityproperties
+        print(normalization_scheme_per_modality)
         self.normalization_scheme_per_modality = normalization_scheme_per_modality
         self.use_nonzero_mask = use_nonzero_mask
 
@@ -263,6 +264,9 @@ class GenericPreprocessor(object):
         properties["size_after_resampling"] = data[0].shape
         properties["spacing_after_resampling"] = target_spacing
         use_nonzero_mask = self.use_nonzero_mask
+        print("normalization_scheme_per_modality:", self.normalization_scheme_per_modality)
+        print("len: data", len(data))
+
 
         assert len(self.normalization_scheme_per_modality) == len(data), "self.normalization_scheme_per_modality " \
                                                                          "must have as many entries as data has " \
