@@ -47,7 +47,7 @@ class Evaluator:
         "Hausdorff Distance 95",
         "Precision",
         "Recall",
-        "Avg. Surface Distance",
+        "Avg. Symmetric Surface Distance",
         "Total Positives Test",
         "Total Positives Reference",
         "Volume Reference",
