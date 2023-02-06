@@ -356,7 +356,7 @@ class DataLoader3D_random(SlimDataLoaderBase):
 class DataLoader3D_major(SlimDataLoaderBase):
     def __init__(self, data, patch_size, final_patch_size, batch_size, has_prev_stage=False,
                  oversample_foreground_percent=0.33, memmap_mode="r+", pad_mode="edge", pad_kwargs_data=None,
-                 pad_sides=None):
+                 pad_sides=None, sum_mode=False):
         """
         :param data: get this with load_dataset(folder, stage=0). Plug the return value in here and you are g2g (good to go)
         :param patch_size: what patch size will this data loader return? it is common practice to first load larger
@@ -401,6 +401,7 @@ class DataLoader3D_major(SlimDataLoaderBase):
         k = list(self._data.keys())[0]
         self.major_seg_list = [i for i in self._data[k].keys() if i.startswith('data_file')]
         self.number_of_raters = len(self.major_seg_list)
+        self.sum_mode = sum_mode
 
     def get_do_oversample(self, batch_idx):
         return not batch_idx < round(self.batch_size * (1 - self.oversample_foreground_percent))
@@ -445,7 +446,10 @@ class DataLoader3D_major(SlimDataLoaderBase):
                 for a in self.major_seg_list:
                     case_all_data_expert = np.load(self._data[i][a][:-4] + ".npy", self.memmap_mode)
                     data_list.append(case_all_data_expert[1,:,:,:])
-                case_all_data_sum = np.sum(data_list, axis= 0) > (self.number_of_raters/2)
+                if self.sum_mode:
+                    case_all_data_sum = np.sum(data_list, axis=0) != 0
+                else:
+                    case_all_data_sum = np.sum(data_list, axis=0) > (self.number_of_raters / 2)
                 case_all_data_seg = case_all_data_sum.astype(np.float)
                 # stack majority vote segmentation to input image. It does not mater which one. All experts have the same input image
                 # We could exchange Abdel for any other experts
@@ -455,7 +459,10 @@ class DataLoader3D_major(SlimDataLoaderBase):
                 for a in self.major_seg_list:
                     case_all_data_expert = np.load(self._data[i][a])['data']
                     data_list.append(case_all_data_expert[1,:,:,:])
-                case_all_data_sum = np.sum(data_list, axis= 0) > (self.number_of_raters/2)
+                if self.sum_mode:
+                    case_all_data_sum = np.sum(data_list, axis=0) != 0
+                else:
+                    case_all_data_sum = np.sum(data_list, axis= 0) > (self.number_of_raters/2)
                 case_all_data_seg = case_all_data_sum.astype(np.float)
                 # stack majority vote segmentation to input image. It does not mater which one. All experts have the same input image
                 # We could exchange Abdel for any other experts
