@@ -41,6 +41,8 @@ class nnUNetTrainerV2_random_data_loader_3rater(nnUNetTrainerV2):
         self.max_num_epochs = 1000 # changed from 1000
         self.threshold = float(1)
         self.gt_niftis_folder_random = self.gt_niftis_folder + '_random'
+        self.loss = RobustCrossEntropyLoss
+        self.print_to_log_file("I will use ", self.loss, "as loss function.")
 
     def initialize(self, training=True, force_load_plans=False):
         """
