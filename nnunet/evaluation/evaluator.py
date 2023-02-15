@@ -14,7 +14,7 @@
 import sys
 from collections import OrderedDict
 import sklearn.metrics
-from metrics import ConfusionMatrix, ALL_METRICS
+from nnunet.evaluation.metrics import ConfusionMatrix, ALL_METRICS
 import collections
 import inspect
 from datetime import datetime
