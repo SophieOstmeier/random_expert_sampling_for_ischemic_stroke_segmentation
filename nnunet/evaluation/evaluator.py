@@ -11,18 +11,12 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
-
-
-from collections import OrderedDict
-from sklearn.metrics import roc_auc_score
-from nnunet.evaluation.metrics import ConfusionMatrix, ALL_METRICS
-import collections
-import itertools
-import inspect
-import json
 import sys
-import hashlib
+from collections import OrderedDict
+import sklearn.metrics
+from metrics import ConfusionMatrix, ALL_METRICS
+import collections
+import inspect
 from datetime import datetime
 from multiprocessing.pool import Pool
 import numpy as np
@@ -45,16 +39,19 @@ class Evaluator:
     default_metrics = [
         "Dice",
         "Hausdorff Distance 95",
+        "Avg. Symmetric Surface Distance",
         "Precision",
         "Recall",
-        "Avg. Symmetric Surface Distance",
         "Total Positives Test",
         "Total Positives Reference",
         "Volume Reference",
         "Volume Test",
         "Volume Absolute Difference",
+        "Volume Absolute Difference",
         "Volumetric Similarity",
-        "Surface Dice Variable"
+        "Surface Dice Variable",
+        "Jaccard",
+        "Surface Jaccard Variable",
     ]
 
     default_advanced_metrics = [
@@ -226,7 +223,12 @@ class Evaluator:
         if isinstance(self.threshold, float):
             eval_metrics += self.default_detection
 
+        #self.labels = dict(filter(lambda x: x[0] > 0.5, self.labels.items()))
         if isinstance(self.labels, dict):
+            #
+            #print('Hello from the child process', flush=True)
+            #print(self.labels, flush=True)
+            #sys.stdout.flush()
 
             for label, name in self.labels.items():
                 if label == 0:
@@ -388,8 +390,12 @@ def format_dict_for_excel(dict_scores):
         list_cases.append(flatten_dict)
     return list_cases
 
+def make_bootstrap(data, function, bootstrap_list):
+    assert float(len(data)) == float(len(bootstrap_list[0]))
+    return [function([data[a] for a in bootstrap_list[i]]) for i in range(len(bootstrap_list))]
 
-
+def value_CI(data, func):
+    return
 def aggregate_scores(test_ref_pair,
                      threshold=None,
                      labels=None,
@@ -439,7 +445,17 @@ def aggregate_scores(test_ref_pair,
     test = [i[0] for i in test_ref_pair]
     ref = [i[1] for i in test_ref_pair]
 
+    # pbar = tqdm(total=len(ref))
+    #
+    # all_res = []
+
     run_eval_start_time = time.perf_counter()
+
+    # with Pool(num_threads) as p:
+    #     for i in p.map(run_evaluation, zip(test, ref, [evaluator] * len(ref), [metric_kwargs] * len(ref))):
+    #         all_res.append(i)
+    #         pbar.update(i)
+    #
     p = Pool(num_threads)
     all_res = p.map(run_evaluation, zip(test, ref, [evaluator] * len(ref), [metric_kwargs] * len(ref)))
     p.close()
@@ -448,6 +464,10 @@ def aggregate_scores(test_ref_pair,
 
     remainder_start = time.perf_counter()
 
+    reps = 1000
+
+    bootstrap_list = [list(np.random.choice(range(len(test)), size=len(list(test)), replace=True)) for _ in range(reps)]
+    epsilon = [1e-8 for _ in range(reps)]
     # brian code 1
 #    all_scores["all"] = list(itertools.chain.from_iterable(all_res))
 
@@ -461,6 +481,7 @@ def aggregate_scores(test_ref_pair,
                 continue
             if label not in all_scores["mean"]:
                 all_scores["mean"][label] = OrderedDict()
+                all_scores["mean"][f"{label} CI"] = OrderedDict()
             for score, value in score_dict.items():
                 if score not in detection_scores:
                     if score not in all_scores["mean"][label]:
@@ -472,6 +493,7 @@ def aggregate_scores(test_ref_pair,
                 continue
             if label not in all_scores["median"]:
                 all_scores["median"][label] = OrderedDict()
+                all_scores["median"][f"{label} CI"] = OrderedDict()
             for score, value in score_dict.items():
                 if score not in detection_scores:
                     if score not in all_scores["median"][label]:
@@ -483,71 +505,111 @@ def aggregate_scores(test_ref_pair,
                 continue
             if label not in all_scores["image-level classification"]:
                 all_scores["image-level classification"][label] = OrderedDict()
+                all_scores["image-level classification"][f"{label} CI"] = OrderedDict()
             for score, value in score_dict.items():
                 if score in detection_scores:
                     if score not in all_scores["image-level classification"][label]:
                         all_scores["image-level classification"][label][score] = []
                     all_scores["image-level classification"][label][score].append(value)
 
-    for label in all_scores["mean"]:
-        for score in all_scores["mean"][label]:
-            if nanmean:
-                all_scores["mean"][label][score] = float(np.nanmean(all_scores["mean"][label][score]))
-            else:
-                all_scores["mean"][label][score] = float(np.mean(all_scores["mean"][label][score]))
-
-    for label in all_scores["median"]:
-        for score in all_scores["median"][label]:
-            if nanmean:
-                all_scores["median"][label][score] = float(np.nanmedian(all_scores["median"][label][score]))
-            else:
-                all_scores["median"][label][score] = float(np.median(all_scores["median"][label][score]))
-
-    for label in all_scores["image-level classification"]:
-        for score in all_scores["image-level classification"][label]:
-            if nanmean:
-                if score == 'LDR' or score == 'CCR':
-                    all_scores["image-level classification"][label][score] = float(
-                        np.nanmean(all_scores["image-level classification"][label][score]))
+    for label in labels:
+        if float(label) > float(0):
+            label = str(label)
+            for score in all_scores["mean"][label]:
+                if nanmean:
+                    all_scores["mean"][f"{label} CI"][score] = "±" + str(np.round(np.std(make_bootstrap(all_scores["mean"][label][score], np.nanmean,bootstrap_list)),2))
+                    all_scores["mean"][label][score] = float(np.nanmean(all_scores["mean"][label][score]))
                 else:
-                    all_scores["image-level classification"][label][score] = float(
-                        np.nansum(all_scores["image-level classification"][label][score]))
-            else:
-                if score == 'LDR' or score == 'CCR':
-                    all_scores["image-level classification"][label][score] = float(
-                        np.mean(all_scores["image-level classification"][label][score]))
+                    all_scores["mean"][f"{label} CI"][score] = "±" + str(np.round(np.std( make_bootstrap(all_scores["mean"][label][score], np.mean, bootstrap_list)),2))
+                    all_scores["mean"][label][score] = float(np.mean(all_scores["mean"][label][score]))
+
+    for label in labels:
+        if float(label) > float(0):
+            label = str(label)
+            for score in all_scores["median"][label]:
+                if nanmean:
+                    all_scores["median"][f"{label} CI"][score] = "±" + str(np.round(np.std( make_bootstrap(all_scores["median"][label][score], np.nanmedian, bootstrap_list)),2))
+                    all_scores["median"][label][score] = float(np.nanmedian(all_scores["median"][label][score]))
                 else:
-                    all_scores["image-level classification"][label][score] = float(
-                        np.sum(all_scores["image-level classification"][label][score]))
+                    all_scores["median"][f"{label} CI"][score] = "±" + str(np.round(np.std( make_bootstrap(all_scores["median"][label][score], np.median, bootstrap_list)),2))
+                    all_scores["median"][label][score] = float(np.median(all_scores["median"][label][score]))
+
+    for label in labels:
+        if float(label) > 0:
+            label = str(label)
+            for score in all_scores["image-level classification"][label]:
+                if nanmean:
+                    if score == 'LDR' or score == 'CCR':
+                        all_scores["image-level classification"][f"{label} CI"][score] = \
+                            "±" + str(np.round(np.std( make_bootstrap(all_scores["image-level classification"][label][score], np.nanmean, bootstrap_list)),2))
+                        all_scores["image-level classification"][label][score] = \
+                            float(np.nanmean(all_scores["image-level classification"][label][score]))
+                    else:
+                        all_scores["image-level classification"][f"{label} CI"][score] = \
+                            make_bootstrap(all_scores["image-level classification"][label][score], np.nansum, bootstrap_list)
+                        all_scores["image-level classification"][label][score] = \
+                            float(np.nansum(all_scores["image-level classification"][label][score]))
+                else:
+                    if score == 'LDR' or score == 'CCR':
+                        all_scores["image-level classification"][f"{label} CI"][score] = \
+                            "±" + str(np.round(np.std(make_bootstrap(all_scores["image-level classification"][label][score], np.mean, bootstrap_list)),2))
+                        all_scores["image-level classification"][label][score] = \
+                            float(np.mean(all_scores["image-level classification"][label][score]))
+                    else:
+                        all_scores["image-level classification"][f"{label} CI"][score] = \
+                            make_bootstrap(all_scores["image-level classification"][label][score],np.sum, bootstrap_list)
+                        all_scores["image-level classification"][label][score] = \
+                            float(np.sum(all_scores["image-level classification"][label][score]))
     # calculate image classification metric
     if isinstance(threshold, float):
-        for label in all_scores["image-level classification"]:
-            tp = float(all_scores["image-level classification"][label]["Image-level TP"])
-            tn = float(all_scores["image-level classification"][label]["Image-level TN"])
-            fp = float(all_scores["image-level classification"][label]["Image-level FP"])
-            fn = float(all_scores["image-level classification"][label]["Image-level FN"])
-            # positive reference cases
-            all_scores["image-level classification"][label]["Positive reference studies"] = tp + fn
-            # negative reference cases
-            all_scores["image-level classification"][label]["Negative reference studies"] = tn + fp
-            # calculate sensitivity
-            all_scores["image-level classification"][label]["image-level Sensitivity/TPR"] = tp / (tp + fn + 1e-8)
-            # calculate Precision
-            all_scores["image-level classification"][label]["image-level Precision"] = tp / (tp + fp + 1e-8)
-            # calculate specificity
-            all_scores["image-level classification"][label]["image-level Specificity"] = tn / (tn + fp + 1e-8)
-            # calculate specificity
-            all_scores["image-level classification"][label]["image-level FPR"] = tp / (tp + fn + 1e-8)
-            # calculate AUC for label > 0
-            if int(label) > 0:
+        for label in labels:
+            if float(label) > 0:
+                label = str(label)
+                tp = float(all_scores["image-level classification"][label]["Image-level TP"])
+                tn = float(all_scores["image-level classification"][label]["Image-level TN"])
+                fp = float(all_scores["image-level classification"][label]["Image-level FP"])
+                fn = float(all_scores["image-level classification"][label]["Image-level FN"])
+                tp_b = all_scores["image-level classification"][f"{label} CI"]["Image-level TP"]
+                tn_b = all_scores["image-level classification"][f"{label} CI"]["Image-level TN"]
+                fp_b = all_scores["image-level classification"][f"{label} CI"]["Image-level FP"]
+                fn_b = all_scores["image-level classification"][f"{label} CI"]["Image-level FN"]
+                # positive reference cases
+                all_scores["image-level classification"][label]["Positive reference studies"] = tp + fn
+                # negative reference cases
+                all_scores["image-level classification"][label]["Negative reference studies"] = tn + fp
+                # calculate sensitivity
+                all_scores["image-level classification"][label]["image-level Sensitivity/TPR"] = tp / (tp + fn + 1e-8)
+                all_scores["image-level classification"][f"{label} CI"]["image-level Sensitivity/TPR"] = "±" + str(np.round(np.std([(tp_b[i] / (tp_b[i] + fn_b[i] + 1e-8))for i in range(reps)]),2))
+                # calculate Precision
+                all_scores["image-level classification"][label]["image-level Precision"] = tp / (tp + fp + 1e-8)
+                all_scores["image-level classification"][f"{label} CI"]["image-level Precision"] = "±" + str(np.round(np.std(np.divide(tp_b,np.sum((tp_b,fp_b,epsilon)))),2))
+                # calculate specificity
+                all_scores["image-level classification"][label]["image-level Specificity"] = tn / (tn + fp + 1e-8)
+                all_scores["image-level classification"][f"{label} CI"]["image-level Specificity"] = "±" + str(np.round(np.std(np.divide(tn_b, np.sum((tn_b,fp_b,epsilon)))),2))
+                # calculate specificity
+                all_scores["image-level classification"][label]["image-level FPR"] = tp / (tp + fn + 1e-8)
+                all_scores["image-level classification"][f"{label} CI"]["image-level FPR"] = "±" + str(np.round(np.std(np.divide(tp_b, np.sum((tp_b,fn_b,epsilon)))),2))
+                # calculate AUC for label > 0
+                all_scores["image-level classification"][f"{label} CI"]["Image-level TP"] = float("NaN")
+                all_scores["image-level classification"][f"{label} CI"]["Image-level TN"] = float("NaN")
+                all_scores["image-level classification"][f"{label} CI"]["Image-level FP"] = float("NaN")
+                all_scores["image-level classification"][f"{label} CI"]["Image-level FN"] = float("NaN")
                 try:
-                    y_true = np.array([i[label]['Volume Reference'] for i in all_scores["all"]])
-                    y_true = (y_true > threshold) * 1
-                    y_score = np.array([i[label]['Volume Test'] for i in all_scores["all"]])
-                    all_scores["image-level classification"][label]["image-level AUC"] = roc_auc_score(y_true, y_score)
-                except ValueError:
-                    all_scores["image-level classification"][label]["image-level AUC"] = float('nan')
-                    pass
+                    if int(label) > 0:
+                        y_true = np.array([i[label]['Volume Reference'] for i in all_scores["all"]])
+                        y_true = (y_true > threshold) * 1
+                        y_true_b = [[y_true[a] for a in bootstrap_list[i]] for i in range(len(bootstrap_list))]
+
+                        y_score = np.array([i[label]['Volume Test'] for i in all_scores["all"]])
+                        y_score_b = [[y_score[a] for a in bootstrap_list[i]] for i in range(len(bootstrap_list))]
+
+                        all_scores["image-level classification"][label]["image-level AUC"] = sklearn.metrics.roc_auc_score(y_true, y_score)
+                        all_scores["image-level classification"][f"{label} CI"]["image-level AUC"] = "±" + str(
+                            np.round(np.std([sklearn.metrics.roc_auc_score(t, s) for t, s in zip(y_true_b,y_score_b)]), 2))
+
+                except:
+                    print("no AUC evaluation")
+
 
     # save to file if desired
     # we create a hopefully unique id by hashing the entire output dictionary
@@ -560,7 +622,8 @@ def aggregate_scores(test_ref_pair,
         json_dict["task"] = json_task
         json_dict["author"] = json_author
         json_dict["results"] = all_scores
-        json_dict["id"] = hashlib.md5(json.dumps(json_dict).encode("utf-8")).hexdigest()[:12]
+        #json_dict["id"] = hashlib.md5(json.dumps(json_dict).encode("utf-8")).hexdigest()[:12]
+        print(json_dict)
         save_json(json_dict, json_output_file)
         df1 = pd.DataFrame(format_dict_for_excel(all_scores["all"]))
         df2 = pd.DataFrame(all_scores["mean"])
@@ -580,7 +643,7 @@ def aggregate_scores(test_ref_pair,
     return all_scores
 
 
-def evaluate_folder(folder_with_gts: str, folder_with_predictions: str, th: float, labels: tuple, specific: bool,
+def evaluate_folder(folder_with_gts: str, folder_with_predictions: str, th: float, labels: tuple, specific: bool, name: str,
                     **metric_kwargs):
     """
     writes a summary.json to folder_with_predictions
@@ -594,36 +657,32 @@ def evaluate_folder(folder_with_gts: str, folder_with_predictions: str, th: floa
     else:
         threshold = None
 
-    time_start = datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p")
-    print('start time:', time_start)
+    if name is None:
+        name = datetime.now().strftime("%Y_%m_%d-%I_%M_%S_%p")
+    print('start time:', name)
     print('specific:', specific)
 
     if specific:
 
-        list = []
-
-        if timing_test:
-            list = list[:8]
-
+        list = ['NCCT_001.nii.gz','NCCT_002.nii.gz','NCCT_003.nii.gz','NCCT_004.nii.gz','NCCT_005.nii.gz','NCCT_006.nii.gz','NCCT_007.nii.gz','NCCT_008.nii.gz','NCCT_009.nii.gz','NCCT_010.nii.gz','NCCT_011.nii.gz','NCCT_012.nii.gz','NCCT_013.nii.gz','NCCT_015.nii.gz','NCCT_016.nii.gz','NCCT_017.nii.gz','NCCT_018.nii.gz','NCCT_019.nii.gz','NCCT_020.nii.gz','NCCT_021.nii.gz','NCCT_022.nii.gz','NCCT_023.nii.gz','NCCT_024.nii.gz','NCCT_025.nii.gz','NCCT_026.nii.gz','NCCT_027.nii.gz','NCCT_028.nii.gz','NCCT_029.nii.gz','NCCT_030.nii.gz','NCCT_031.nii.gz','NCCT_032.nii.gz','NCCT_033.nii.gz','NCCT_034.nii.gz','NCCT_035.nii.gz','NCCT_036.nii.gz','NCCT_037.nii.gz','NCCT_038.nii.gz','NCCT_039.nii.gz','NCCT_040.nii.gz','NCCT_041.nii.gz','NCCT_042.nii.gz','NCCT_043.nii.gz','NCCT_044.nii.gz','NCCT_045.nii.gz','NCCT_046.nii.gz','NCCT_047.nii.gz','NCCT_048.nii.gz','NCCT_049.nii.gz','NCCT_050.nii.gz','NCCT_051.nii.gz','NCCT_052.nii.gz','NCCT_054.nii.gz','NCCT_055.nii.gz','NCCT_056.nii.gz','NCCT_057.nii.gz','NCCT_058.nii.gz','NCCT_059.nii.gz','NCCT_060.nii.gz','NCCT_061.nii.gz','NCCT_062.nii.gz','NCCT_064.nii.gz','NCCT_065.nii.gz','NCCT_067.nii.gz','NCCT_070.nii.gz','NCCT_071.nii.gz','NCCT_073.nii.gz','NCCT_074.nii.gz','NCCT_075.nii.gz','NCCT_076.nii.gz','NCCT_077.nii.gz','NCCT_078.nii.gz','NCCT_079.nii.gz','NCCT_080.nii.gz','NCCT_081.nii.gz','NCCT_082.nii.gz','NCCT_083.nii.gz','NCCT_084.nii.gz','NCCT_085.nii.gz','NCCT_086.nii.gz','NCCT_087.nii.gz','NCCT_088.nii.gz','NCCT_089.nii.gz','NCCT_090.nii.gz','NCCT_091.nii.gz','NCCT_092.nii.gz','NCCT_095.nii.gz','NCCT_097.nii.gz','NCCT_100.nii.gz','NCCT_102.nii.gz','NCCT_104.nii.gz','NCCT_105.nii.gz','NCCT_106.nii.gz','NCCT_107.nii.gz','NCCT_108.nii.gz','NCCT_110.nii.gz','NCCT_112.nii.gz','NCCT_113.nii.gz','NCCT_115.nii.gz','NCCT_116.nii.gz','NCCT_117.nii.gz','NCCT_118.nii.gz','NCCT_119.nii.gz','NCCT_121.nii.gz','NCCT_122.nii.gz','NCCT_123.nii.gz','NCCT_124.nii.gz','NCCT_125.nii.gz','NCCT_126.nii.gz','NCCT_127.nii.gz','NCCT_128.nii.gz','NCCT_129.nii.gz','NCCT_130.nii.gz','NCCT_132.nii.gz','NCCT_134.nii.gz','NCCT_135.nii.gz','NCCT_136.nii.gz','NCCT_137.nii.gz','NCCT_138.nii.gz','NCCT_139.nii.gz','NCCT_140.nii.gz','NCCT_141.nii.gz','NCCT_142.nii.gz','NCCT_143.nii.gz','NCCT_144.nii.gz','NCCT_145.nii.gz','NCCT_146.nii.gz','NCCT_147.nii.gz','NCCT_148.nii.gz','NCCT_149.nii.gz','NCCT_150.nii.gz','NCCT_151.nii.gz','NCCT_152.nii.gz','NCCT_153.nii.gz','NCCT_154.nii.gz','NCCT_155.nii.gz','NCCT_156.nii.gz','NCCT_157.nii.gz','NCCT_158.nii.gz','NCCT_159.nii.gz','NCCT_160.nii.gz','NCCT_161.nii.gz','NCCT_162.nii.gz','NCCT_163.nii.gz','NCCT_165.nii.gz','NCCT_166.nii.gz','NCCT_167.nii.gz','NCCT_168.nii.gz','NCCT_169.nii.gz','NCCT_170.nii.gz','NCCT_172.nii.gz','NCCT_173.nii.gz','NCCT_174.nii.gz','NCCT_175.nii.gz','NCCT_176.nii.gz','NCCT_177.nii.gz','NCCT_178.nii.gz','NCCT_179.nii.gz','NCCT_180.nii.gz','NCCT_181.nii.gz','NCCT_182.nii.gz','NCCT_183.nii.gz','NCCT_184.nii.gz','NCCT_185.nii.gz','NCCT_186.nii.gz','NCCT_187.nii.gz','NCCT_188.nii.gz','NCCT_189.nii.gz','NCCT_190.nii.gz','NCCT_191.nii.gz','NCCT_192.nii.gz','NCCT_194.nii.gz','NCCT_195.nii.gz','NCCT_196.nii.gz','NCCT_197.nii.gz','NCCT_198.nii.gz','NCCT_199.nii.gz','NCCT_200.nii.gz','NCCT_201.nii.gz','NCCT_202.nii.gz','NCCT_203.nii.gz','NCCT_204.nii.gz','NCCT_205.nii.gz','NCCT_206.nii.gz','NCCT_207.nii.gz','NCCT_208.nii.gz','NCCT_209.nii.gz','NCCT_210.nii.gz','NCCT_211.nii.gz','NCCT_212.nii.gz','NCCT_213.nii.gz','NCCT_214.nii.gz','NCCT_215.nii.gz','NCCT_216.nii.gz','NCCT_217.nii.gz','NCCT_218.nii.gz','NCCT_219.nii.gz','NCCT_220.nii.gz','NCCT_221.nii.gz','NCCT_222.nii.gz','NCCT_223.nii.gz','NCCT_224.nii.gz','NCCT_225.nii.gz','NCCT_226.nii.gz','NCCT_228.nii.gz','NCCT_229.nii.gz','NCCT_230.nii.gz','NCCT_231.nii.gz','NCCT_232.nii.gz','NCCT_234.nii.gz','NCCT_235.nii.gz','NCCT_236.nii.gz','NCCT_237.nii.gz','NCCT_239.nii.gz','NCCT_240.nii.gz','NCCT_241.nii.gz','NCCT_243.nii.gz','NCCT_244.nii.gz','NCCT_245.nii.gz','NCCT_246.nii.gz','NCCT_248.nii.gz','NCCT_249.nii.gz','NCCT_250.nii.gz','NCCT_251.nii.gz','NCCT_252.nii.gz','NCCT_253.nii.gz','NCCT_254.nii.gz','NCCT_255.nii.gz','NCCT_256.nii.gz','NCCT_257.nii.gz','NCCT_258.nii.gz','NCCT_259.nii.gz','NCCT_260.nii.gz','NCCT_261.nii.gz','NCCT_301.nii.gz','NCCT_302.nii.gz','NCCT_303.nii.gz','NCCT_304.nii.gz','NCCT_305.nii.gz','NCCT_306.nii.gz','NCCT_307.nii.gz','NCCT_308.nii.gz','NCCT_309.nii.gz','NCCT_310.nii.gz','NCCT_311.nii.gz','NCCT_312.nii.gz','NCCT_313.nii.gz','NCCT_314.nii.gz','NCCT_315.nii.gz','NCCT_316.nii.gz','NCCT_317.nii.gz','NCCT_318.nii.gz','NCCT_319.nii.gz','NCCT_320.nii.gz','NCCT_321.nii.gz','NCCT_322.nii.gz','NCCT_323.nii.gz','NCCT_324.nii.gz','NCCT_325.nii.gz','NCCT_326.nii.gz','NCCT_327.nii.gz','NCCT_328.nii.gz','NCCT_329.nii.gz','NCCT_330.nii.gz','NCCT_331.nii.gz','NCCT_332.nii.gz','NCCT_333.nii.gz','NCCT_334.nii.gz','NCCT_335.nii.gz','NCCT_336.nii.gz','NCCT_337.nii.gz','NCCT_338.nii.gz','NCCT_339.nii.gz','NCCT_340.nii.gz','NCCT_341.nii.gz','NCCT_342.nii.gz','NCCT_343.nii.gz','NCCT_344.nii.gz','NCCT_345.nii.gz','NCCT_346.nii.gz','NCCT_347.nii.gz','NCCT_348.nii.gz','NCCT_349.nii.gz','NCCT_350.nii.gz','NCCT_351.nii.gz','NCCT_352.nii.gz','NCCT_353.nii.gz','NCCT_354.nii.gz','NCCT_355.nii.gz','NCCT_356.nii.gz','NCCT_357.nii.gz','NCCT_358.nii.gz','NCCT_359.nii.gz','NCCT_360.nii.gz','NCCT_361.nii.gz','NCCT_362.nii.gz','NCCT_363.nii.gz','NCCT_364.nii.gz','NCCT_365.nii.gz','NCCT_366.nii.gz','NCCT_367.nii.gz','NCCT_368.nii.gz','NCCT_369.nii.gz','NCCT_370.nii.gz','NCCT_371.nii.gz','NCCT_372.nii.gz','NCCT_373.nii.gz','NCCT_374.nii.gz','NCCT_375.nii.gz','NCCT_376.nii.gz','NCCT_377.nii.gz','NCCT_378.nii.gz','NCCT_379.nii.gz','NCCT_380.nii.gz','NCCT_381.nii.gz','NCCT_382.nii.gz','NCCT_383.nii.gz','NCCT_384.nii.gz','NCCT_385.nii.gz','NCCT_386.nii.gz','NCCT_387.nii.gz','NCCT_388.nii.gz','NCCT_389.nii.gz','NCCT_390.nii.gz','NCCT_391.nii.gz','NCCT_392.nii.gz','NCCT_393.nii.gz','NCCT_394.nii.gz','NCCT_395.nii.gz','NCCT_396.nii.gz','NCCT_397.nii.gz','NCCT_398.nii.gz','NCCT_399.nii.gz','NCCT_400.nii.gz','NCCT_401.nii.gz','NCCT_402.nii.gz','NCCT_403.nii.gz','NCCT_404.nii.gz','NCCT_405.nii.gz','NCCT_406.nii.gz','NCCT_407.nii.gz','NCCT_408.nii.gz','NCCT_409.nii.gz','NCCT_410.nii.gz','NCCT_411.nii.gz','NCCT_412.nii.gz','NCCT_413.nii.gz','NCCT_414.nii.gz','NCCT_415.nii.gz','NCCT_416.nii.gz','NCCT_417.nii.gz','NCCT_418.nii.gz','NCCT_419.nii.gz','NCCT_420.nii.gz','NCCT_421.nii.gz','NCCT_422.nii.gz','NCCT_423.nii.gz','NCCT_424.nii.gz','NCCT_425.nii.gz','NCCT_426.nii.gz','NCCT_427.nii.gz','NCCT_428.nii.gz','NCCT_429.nii.gz','NCCT_430.nii.gz','NCCT_431.nii.gz','NCCT_432.nii.gz','NCCT_433.nii.gz','NCCT_434.nii.gz','NCCT_435.nii.gz','NCCT_436.nii.gz','NCCT_437.nii.gz','NCCT_438.nii.gz','NCCT_439.nii.gz','NCCT_440.nii.gz','NCCT_441.nii.gz','NCCT_442.nii.gz','NCCT_443.nii.gz','NCCT_444.nii.gz','NCCT_445.nii.gz','NCCT_446.nii.gz','NCCT_447.nii.gz','NCCT_448.nii.gz','NCCT_449.nii.gz','NCCT_450.nii.gz','NCCT_451.nii.gz','NCCT_452.nii.gz','NCCT_453.nii.gz','NCCT_454.nii.gz','NCCT_455.nii.gz','NCCT_456.nii.gz']
         files_gt_all = subfiles(folder_with_gts, suffix=".nii.gz", join=False, sort=True)
         files_gt = [g for g in files_gt_all if g in list]
 
         files_pred_all = subfiles(folder_with_predictions, suffix=".nii.gz", join=False, sort=True)
         files_pred = [p for p in files_pred_all if p in list]
 
-        print('I evaluate for cases:', list)
+        print("I evaluate ", len(list), "cases e.g.:", list[0:10],"....")
     else:
         files_gt = subfiles(folder_with_gts, suffix=".nii.gz", join=False, sort=True)
         files_pred = subfiles(folder_with_predictions, suffix=".nii.gz", join=False, sort=True)
 
-    assert all([i in files_pred for i in files_gt]), "files missing in folder_with_predictions"
-    assert all([i in files_gt for i in files_pred]), "files missing in folder_with_gts"
-    test_ref_pair = [(join(folder_with_predictions, i), join(folder_with_gts, i)) for i in files_pred]
-
+    assert all([i in files_pred for i in files_gt]), "files missing in folder_with_predictions or differently named"
+    assert all([i in files_gt for i in files_pred]), "files missing in folder_with_gts or differently named"
+    test_ref_pair = [(join(folder_with_predictions, i), join(folder_with_gts, a)) for i, a in zip(files_pred,files_gt)]
     agg_s_time = time.perf_counter()
     res = aggregate_scores(test_ref_pair, threshold=threshold,
-                           json_output_file=join(folder_with_predictions, f"summary_{time_start}.json"),
-                           excel_output_file=join(folder_with_predictions, f"summary_{time_start}.xlsx"),
+                           json_output_file=join(folder_with_predictions, f"summary_{name}.json"),
+                           excel_output_file=join(folder_with_predictions, f"summary_{name}.xlsx"),
                            num_threads=8, labels=labels, **metric_kwargs)
     print("agg scores took: ", time.perf_counter() - agg_s_time)
     return res
