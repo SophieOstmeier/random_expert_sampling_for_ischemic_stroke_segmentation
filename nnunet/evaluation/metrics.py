@@ -467,11 +467,11 @@ def compute_surface_dice_at_tolerance_list(test=None, reference=None, confusion_
 
     test_small, reference_small = confusion_matrix.get_thresholded()
 
-    print("tolerance_list: ", tolerance_list)
+    #print("tolerance_list: ", tolerance_list)
 
     tolerance_list = [2,5,10]
 
-    print(f"tolerance_list now: {tolerance_list}")
+    #print(f"tolerance_list now: {tolerance_list}")
 
     if reference_small or test_small:
         if nan_for_nonexisting:

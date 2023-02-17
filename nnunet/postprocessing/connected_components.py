@@ -138,8 +138,8 @@ def determine_postprocessing(base, gt_labels_folder, threshold, raw_subfolder_na
     :return:
     """
     # lets see what classes are in the dataset
-    classes = [int(i) for i in load_json(join(base, raw_subfolder_name, "summary.json"))['results']['median'].keys() if
-               int(i) != 0]
+    classes = [int(i) for i in load_json(join(base, raw_subfolder_name, "summary.json"))['results']['mean'].keys() if not i.endswith("CI") and i != "0"]
+
 
     folder_all_classes_as_fg = join(base, temp_folder + "_allClasses")
     folder_per_class = join(base, temp_folder + "_perClass")
