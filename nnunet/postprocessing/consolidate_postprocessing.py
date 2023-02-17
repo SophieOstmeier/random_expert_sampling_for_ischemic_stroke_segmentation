@@ -72,7 +72,8 @@ def consolidate_folds(output_folder_base, threshold, validation_folder_name: str
     # load a summary file so that we can know what class labels to expect
     summary_fold0 = load_json(join(output_folder_base, "fold_0", validation_folder_name, "summary.json"))['results'][
         'median'] #changed from mean
-    classes = [int(i) for i in summary_fold0.keys()]
+    classes = [int(i) for i in summary_fold0.keys() if not i.endswith("CI") and i != "0"]
+
     niftis = subfiles(output_folder_raw, join=False, suffix=".nii.gz")
     test_pred_pairs = [(join(output_folder_raw, i), join(output_folder_gt, i)) for i in niftis]
 
