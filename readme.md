@@ -1,7 +1,7 @@
 # This is the repo that was used for "Random expert sampling for deep learning segmentation of acute ischemic stroke on non-contrast CT".
 # We are gratefull for nnUnet authors to provide such an amazing code base, which was heavily used for this paper.
 
-=======================================================================================================================================
+================================================================================================================
 # nnU-Net
 
 In 3D biomedical image segmentation, dataset properties like imaging modality, image sizes, voxel spacings, class
