@@ -1,11 +1,7 @@
-**[2020_10_21] Update:** We now have documentation for [common questions](documentation/common_questions.md) and
-[common issues](documentation/common_problems_and_solutions.md). We now also provide [reference epoch times for
-several datasets and tips on how to identify bottlenecks](documentation/expected_epoch_times.md).
+# This is the repo that was used for "Random expert sampling for deep learning segmentation of acute ischemic stroke on non-contrast CT".
+# We are gratefull for nnUnet authors to provide such an amazing code base, which was heavily used for this paper.
 
-Please read these documents before opening a new issue!
-
-My name is Sophie and Brian.
-
+=======================================================================================================================================
 # nnU-Net
 
 In 3D biomedical image segmentation, dataset properties like imaging modality, image sizes, voxel spacings, class
